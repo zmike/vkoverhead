@@ -22,7 +22,7 @@
 project(
   'vkoverhead',
   ['c', 'cpp'],
-  version : '0.1',
+  version : '1.0',
   license : 'MIT',
   meson_version : '>= 0.53',
   default_options : ['buildtype=debugoptimized', 'b_ndebug=if-release', 'c_std=c11', 'cpp_std=c++14']
