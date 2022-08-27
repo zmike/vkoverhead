@@ -1430,7 +1430,7 @@ setup_submit(void)
    /* fill every cmdbuf in pool with MAX_DRAWS */
    for (unsigned i = 0; i < MAX_CMDBUFS; i++) {
       begin_rp();
-      draw(MAX_DRAWS);
+      VK(CmdDraw)(cmdbuf, 3, 1, 0, 0);
       end_cmdbuf();
       count = 0;
       /* ensure the pool doesn't roll over */
