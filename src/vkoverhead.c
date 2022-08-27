@@ -2034,12 +2034,6 @@ main(int argc, char *argv[])
       if (!draw_only && !submit_only)
          printf("\t* descriptor numbers are reported as thousands of operations per second\n"
                 "\t* percentages for submit cases are relative to 'descriptor_noop'\n");
-      if (draw_only)
-         base_rate = perf_run(0, 0, duration);
-      else if (submit_only)
-         base_rate = perf_run(ARRAY_SIZE(cases_draw), 0, duration);
-      else if (descriptor_only)
-         base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit), 0, duration);
       perf_run(test_no, base_rate, duration);
    } else {
       if (!submit_only && !descriptor_only) {
