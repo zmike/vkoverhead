@@ -64,6 +64,7 @@ VkBuffer create_image_buffer(void);
 VkBuffer create_storage_buffer(void);
 VkBufferView create_bufferview(VkBuffer buffer);
 VkImageView create_rt(VkImage *ret_image);
+VkImageView create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples);
 VkImageView create_tex(VkImage *ret_image);
 VkImageView create_storage_image(VkImage *ret_image);
 
@@ -74,6 +75,17 @@ default_subresourcerange(void)
    sub.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
    sub.baseMipLevel = 0;
    sub.levelCount = 1;
+   sub.baseArrayLayer = 0;
+   sub.layerCount = 1;
+   return sub;
+}
+
+static inline VkImageSubresourceLayers
+default_subresourcerangelayers(void)
+{
+   VkImageSubresourceLayers sub = {0};
+   sub.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+   sub.mipLevel = 0;
    sub.baseArrayLayer = 0;
    sub.layerCount = 1;
    return sub;

@@ -128,6 +128,8 @@ static VkDescriptorBufferInfo dbi[2][MAX_UBOS] = {0};
 static VkDescriptorBufferInfo dbi_storage[2][MAX_SSBOS] = {0};
 static VkDescriptorImageInfo dii[2][MAX_SAMPLERS] = {0};
 static VkDescriptorImageInfo dii_storage[2][MAX_IMAGES] = {0};
+static VkImage copy_image;
+static VkImage copy_image_ms;
 
 static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
@@ -144,6 +146,7 @@ static bool color = true;
 static bool submit_only = false;
 static bool draw_only = false;
 static bool descriptor_only = false;
+static bool misc_only = false;
 
 static void
 reset_cmdbuf(void *data, void *gdata, int thread_idx)
@@ -214,11 +217,13 @@ begin_cmdbuf(void)
    cmdbuf_active = true;
 
    VkDeviceSize offsets[16] = {0};
-   VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0]);
-   if (!is_dynamic)
-      VK(CmdBindVertexBuffers)(cmdbuf, 0, ARRAY_SIZE(vbo), vbo, offsets);
-   VK(CmdBindIndexBuffer)(cmdbuf, index_bo[0], 0, VK_INDEX_TYPE_UINT32);
-   VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, desc_set_basic, 0, NULL);
+   if (pipelines) {
+         VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0]);
+      if (!is_dynamic)
+         VK(CmdBindVertexBuffers)(cmdbuf, 0, ARRAY_SIZE(vbo), vbo, offsets);
+      VK(CmdBindIndexBuffer)(cmdbuf, index_bo[0], 0, VK_INDEX_TYPE_UINT32);
+      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, desc_set_basic, 0, NULL);
+   }
 
    if (!is_dynamic)
       return;
@@ -1101,6 +1106,58 @@ descriptor_template_16imagebuffer(unsigned iterations)
    }
 }
 
+static void
+misc_resolve(unsigned iterations)
+{
+   VkImageResolve2 resolve = {0};
+   resolve.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
+   resolve.dstSubresource = resolve.srcSubresource = default_subresourcerangelayers();
+   resolve.extent.width = 100;
+   resolve.extent.height = 100;
+   resolve.extent.depth = 1;
+
+   VkResolveImageInfo2 r = {0};
+   r.sType = VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2;
+   r.srcImage = copy_image_ms;
+   r.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+   r.dstImage = copy_image;
+   r.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+   r.regionCount = 1;
+   r.pRegions = &resolve;
+   iterations = filter_overflow(misc_resolve, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+
+   VkImageMemoryBarrier imb[2] = {0};
+   imb[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+   imb[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+   imb[0].image = copy_image_ms;
+   imb[1].image = copy_image;
+   imb[1].subresourceRange = imb[0].subresourceRange = default_subresourcerange();
+
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      imb[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+      imb[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      imb[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+      imb[1].srcAccessMask = 0;
+      imb[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      imb[1].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+      imb[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+      VK(CmdResolveImage2)(cmdbuf, &r);
+      imb[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+      imb[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      imb[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+      imb[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      imb[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      imb[1].dstAccessMask = 0;
+      imb[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      imb[1].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+   }
+}
+
 struct perf_case {
    const char *name;
    perf_rate_func func;
@@ -1204,7 +1261,12 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16imagebuffer),
 };
 
-#define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))
+#define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
+static struct perf_case cases_misc[] = {
+   CASE_MISC(misc_resolve),
+};
+
+#define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
 
 static void
 set_image_layout(VkImage image, VkImageLayout ly)
@@ -1258,6 +1320,10 @@ setup(void)
       img[i] = create_storage_image(&storage_image[i]);
       setup_image(storage_image[i], VK_IMAGE_LAYOUT_GENERAL);
    }
+   create_rt(&copy_image);
+   setup_image(copy_image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+   create_rt_ms(&copy_image_ms, VK_SAMPLE_COUNT_4_BIT);
+   setup_image(copy_image_ms, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
    /* zero the storage buffers */
    for (unsigned i = 0; i < ARRAY_SIZE(ssbo); i++)
       VK(CmdFillBuffer)(cmdbuf, ssbo[i], 0, VK_WHOLE_SIZE, 0);
@@ -1493,8 +1559,10 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
       p = &cases_submit[case_idx - ARRAY_SIZE(cases_draw)];
       is_submit = true;
-   } else {
+   } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)) {
       p = &cases_descriptor[case_idx - ARRAY_SIZE(cases_draw) - ARRAY_SIZE(cases_submit)];
+   } else {
+      p = &cases_misc[case_idx - ARRAY_SIZE(cases_draw) - ARRAY_SIZE(cases_submit) - ARRAY_SIZE(cases_descriptor)];
    }
    if (cmdbuf_active && (!is_submit || !submit_init)) {
       end_cmdbuf();
@@ -1637,16 +1705,20 @@ parse_args(int argc, const char **argv)
          draw_only = true;
       else if (!strcmp(arg, "descriptor-only"))
          descriptor_only = true;
+      else if (!strcmp(arg, "misc-only"))
+         misc_only = true;
       else if (!strcmp(arg, "list")) {
          for (unsigned i = 0; i < ARRAY_SIZE(cases_draw); i++)
             printf(" %3u, %s\n", i, cases_draw[i].name);
          for (unsigned i = 0; i < ARRAY_SIZE(cases_submit); i++)
             printf(" %3u, %s\n", i + (unsigned)ARRAY_SIZE(cases_draw), cases_submit[i].name);
          for (unsigned i = 0; i < ARRAY_SIZE(cases_descriptor); i++)
-            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_descriptor)), cases_descriptor[i].name);
+            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)), cases_descriptor[i].name);
+         for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
+            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
-         fprintf(stderr, "vkoverhead [-list] [-test TESTNUM] [-nocolor] [-draw-only] [-submit-only] [-descriptor-only]\n");
+         fprintf(stderr, "vkoverhead [-list] [-test TESTNUM] [-nocolor] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
          exit(0);
       }
    }
@@ -2027,25 +2099,28 @@ main(int argc, char *argv[])
    }
    next_cmdbuf();
    printf("vkoverhead running:\n");
-   if (!submit_only && !descriptor_only)
+   if (!submit_only && !descriptor_only && !misc_only)
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
    double base_rate = 0;
    if (test_no > -1) {
-      if (!draw_only && !descriptor_only)
+      if (!draw_only && !descriptor_only && !misc_only)
          printf("\t* submit numbers are reported as operations per second\n"
                 "\t* percentages for submit cases are relative to 'submit_noop'\n");
-      if (!draw_only && !submit_only)
+      if (!draw_only && !submit_only && !misc_only)
          printf("\t* descriptor numbers are reported as thousands of operations per second\n"
-                "\t* percentages for submit cases are relative to 'descriptor_noop'\n");
+                "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
+      if (!draw_only && !submit_only && !descriptor_only)
+         printf("\t* misc numbers are reported as thousands of operations per second\n"
+                "\t* percentages for misc cases should be ignored\n");
       perf_run(test_no, base_rate, duration);
    } else {
-      if (!submit_only && !descriptor_only) {
+      if (!submit_only && !descriptor_only && !misc_only) {
          base_rate = perf_run(0, 0, duration);
          for (unsigned i = 1; i < ARRAY_SIZE(cases_draw); i++)
             perf_run(i, base_rate, duration);
       }
-      if (!draw_only && !descriptor_only) {
+      if (!draw_only && !descriptor_only && !misc_only) {
          printf("\t* submit numbers are reported as operations per second\n"
                 "\t* percentages for submit cases are relative to 'submit_noop'\n");
          base_rate = perf_run(ARRAY_SIZE(cases_draw), 0, duration);
@@ -2057,12 +2132,19 @@ main(int argc, char *argv[])
             VK_CHECK("QueueWaitIdle", result);
          }
       }
-      if (!draw_only && !submit_only) {
+      if (!draw_only && !submit_only && !misc_only) {
          printf("\t* descriptor numbers are reported as thousands of operations per second\n"
-                "\t* percentages for submit cases are relative to 'descriptor_noop'\n");
+                "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
          base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit), 0, duration);
          for (unsigned i = 1; i < ARRAY_SIZE(cases_descriptor); i++)
-            perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) +  + i, base_rate, duration);
+            perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + i, base_rate, duration);
+      }
+      if (!draw_only && !submit_only && !descriptor_only) {
+         printf("\t* misc numbers are reported as thousands of operations per second\n"
+                "\t* percentages for misc cases should be ignored\n");
+         base_rate = 0;
+         for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
+            perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + i, base_rate, duration);
       }
    }
 
