@@ -1232,27 +1232,31 @@ init_dyn_att(VkRenderingAttachmentInfo *att)
 }
 
 static void
+setup_image(VkImage image, VkImageLayout final_layout)
+{
+   VkClearColorValue clear = {0};
+   VkImageSubresourceRange range = default_subresourcerange();
+   set_image_layout(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+   VK(CmdClearColorImage)(cmdbuf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear, 1, &range);
+   set_image_layout(image, final_layout);
+}
+
+static void
 setup(void)
 {
    if (submit_only)
       goto only_submit;
    /* initialize textures */
    VkImage tex_image[MAX_SAMPLERS];
-   VkClearColorValue clear = {0};
-   VkImageSubresourceRange range = default_subresourcerange();
    for (unsigned i = 0; i < ARRAY_SIZE(tex); i++) {
       tex[i] = create_tex(&tex_image[i]);
-      set_image_layout(tex_image[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-      VK(CmdClearColorImage)(cmdbuf, tex_image[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear, 1, &range);
-      set_image_layout(tex_image[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+      setup_image(tex_image[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
    }
    /* initialize storage images */
    VkImage storage_image[MAX_IMAGES];
    for (unsigned i = 0; i < ARRAY_SIZE(storage_image); i++) {
       img[i] = create_storage_image(&storage_image[i]);
-      set_image_layout(storage_image[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-      VK(CmdClearColorImage)(cmdbuf, storage_image[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear, 1, &range);
-      set_image_layout(storage_image[i], VK_IMAGE_LAYOUT_GENERAL);
+      setup_image(storage_image[i], VK_IMAGE_LAYOUT_GENERAL);
    }
    /* zero the storage buffers */
    for (unsigned i = 0; i < ARRAY_SIZE(ssbo); i++)
