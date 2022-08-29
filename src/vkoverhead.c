@@ -1309,14 +1309,14 @@ only_submit:
    }
    for (unsigned i = 0; i < MAX_SAMPLERS; i++) {
       dii[1][i].sampler = dii[0][i].sampler = sampler;
-      dii[1][MAX_SAMPLERS - i].imageView = dii[0][i].imageView = tex[i];
+      dii[1][MAX_SAMPLERS - 1 - i].imageView = dii[0][i].imageView = tex[i];
       dii[1][i].imageLayout = dii[0][i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      tbo_views[1][MAX_SAMPLERS - i] = tbo_views[0][i] = create_bufferview(tbo[i]);
+      tbo_views[1][MAX_SAMPLERS - 1 - i] = tbo_views[0][i] = create_bufferview(tbo[i]);
    }
    for (unsigned i = 0; i < MAX_IMAGES; i++) {
-      dii_storage[1][MAX_IMAGES - i].imageView = dii_storage[0][i].imageView = img[i];
+      dii_storage[1][MAX_IMAGES - 1 - i].imageView = dii_storage[0][i].imageView = img[i];
       dii_storage[1][i].imageLayout = dii_storage[0][i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-      ibo_views[1][MAX_IMAGES - i] = ibo_views[0][i] = create_bufferview(ibo[i]);
+      ibo_views[1][MAX_IMAGES - 1 - i] = ibo_views[0][i] = create_bufferview(ibo[i]);
    }
 
    wds.descriptorCount = MAX_UBOS;
