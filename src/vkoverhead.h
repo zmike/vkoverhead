@@ -63,8 +63,8 @@ VkBuffer create_texel_buffer(void);
 VkBuffer create_image_buffer(void);
 VkBuffer create_storage_buffer(void);
 VkBufferView create_bufferview(VkBuffer buffer);
-VkImageView create_rt(VkImage *ret_image);
-VkImageView create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples);
+VkImageView create_rt(VkImage *ret_image, bool mutable);
+VkImageView create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples, bool mutable);
 VkImageView create_tex(VkImage *ret_image);
 VkImageView create_storage_image(VkImage *ret_image);
 

@@ -128,8 +128,8 @@ static VkDescriptorBufferInfo dbi[2][MAX_UBOS] = {0};
 static VkDescriptorBufferInfo dbi_storage[2][MAX_SSBOS] = {0};
 static VkDescriptorImageInfo dii[2][MAX_SAMPLERS] = {0};
 static VkDescriptorImageInfo dii_storage[2][MAX_IMAGES] = {0};
-static VkImage copy_image;
-static VkImage copy_image_ms;
+static VkImage copy_image[2]; //normal, mutable
+static VkImage copy_image_ms[2]; //normal, mutable
 
 static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
@@ -1107,7 +1107,7 @@ descriptor_template_16imagebuffer(unsigned iterations)
 }
 
 static void
-misc_resolve(unsigned iterations)
+resolve(unsigned iterations, bool mutable)
 {
    VkImageResolve2 resolve = {0};
    resolve.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
@@ -1118,21 +1118,20 @@ misc_resolve(unsigned iterations)
 
    VkResolveImageInfo2 r = {0};
    r.sType = VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2;
-   r.srcImage = copy_image_ms;
+   r.srcImage = copy_image_ms[mutable];
    r.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-   r.dstImage = copy_image;
+   r.dstImage = copy_image[mutable];
    r.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
    r.regionCount = 1;
    r.pRegions = &resolve;
-   iterations = filter_overflow(misc_resolve, iterations, 1);
    if (!cmdbuf_active)
       begin_cmdbuf();
 
    VkImageMemoryBarrier imb[2] = {0};
    imb[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
    imb[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-   imb[0].image = copy_image_ms;
-   imb[1].image = copy_image;
+   imb[0].image = copy_image_ms[mutable];
+   imb[1].image = copy_image[mutable];
    imb[1].subresourceRange = imb[0].subresourceRange = default_subresourcerange();
 
    for (unsigned i = 0; i < iterations; i++, count++) {
@@ -1156,6 +1155,24 @@ misc_resolve(unsigned iterations)
       imb[1].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
       VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
    }
+}
+
+static void
+misc_resolve(unsigned iterations)
+{
+   iterations = filter_overflow(misc_resolve, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   resolve(iterations, false);
+}
+
+static void
+misc_resolve_mutable(unsigned iterations)
+{
+   iterations = filter_overflow(misc_resolve_mutable, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   resolve(iterations, true);
 }
 
 struct perf_case {
@@ -1264,6 +1281,7 @@ static struct perf_case cases_descriptor[] = {
 #define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
 static struct perf_case cases_misc[] = {
    CASE_MISC(misc_resolve),
+   CASE_MISC(misc_resolve_mutable),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
@@ -1286,7 +1304,7 @@ init_dyn_att(VkRenderingAttachmentInfo *att)
 {
    VkImage image;
    att->sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-   att->imageView = create_rt(&image);
+   att->imageView = create_rt(&image, false);
    att->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
    att->storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
@@ -1320,10 +1338,14 @@ setup(void)
       img[i] = create_storage_image(&storage_image[i]);
       setup_image(storage_image[i], VK_IMAGE_LAYOUT_GENERAL);
    }
-   create_rt(&copy_image);
-   setup_image(copy_image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-   create_rt_ms(&copy_image_ms, VK_SAMPLE_COUNT_4_BIT);
-   setup_image(copy_image_ms, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+   for (unsigned i = 0; i < ARRAY_SIZE(copy_image); i++) {
+      create_rt(&copy_image[i], i);
+      setup_image(copy_image[i], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+   }
+   for (unsigned i = 0; i < ARRAY_SIZE(copy_image_ms); i++) {
+      create_rt_ms(&copy_image_ms[i], VK_SAMPLE_COUNT_4_BIT, false);
+      setup_image(copy_image_ms[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+   }
    /* zero the storage buffers */
    for (unsigned i = 0; i < ARRAY_SIZE(ssbo); i++)
       VK(CmdFillBuffer)(cmdbuf, ssbo[i], 0, VK_WHOLE_SIZE, 0);

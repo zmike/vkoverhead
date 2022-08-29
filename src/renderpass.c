@@ -85,7 +85,7 @@ create_framebuffer(unsigned num_rts, VkRenderPass render_pass)
 {
    VkImageView image_views[MAX_RTS];
    for (unsigned i = 0; i < num_rts; i++)
-      image_views[i] = create_rt(NULL);
+      image_views[i] = create_rt(NULL, false);
    VkFramebufferCreateInfo fci = {0};
    fci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
    fci.renderPass = render_pass;

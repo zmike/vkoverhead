@@ -137,10 +137,12 @@ create_bufferview(VkBuffer buffer)
 }
 
 static VkImage
-create_image(VkImageUsageFlags usage, VkSampleCountFlags samples)
+create_image(VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
 {
    VkImageCreateInfo ici = {0};
    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+   if (mutable)
+      ici.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
    ici.imageType = VK_IMAGE_TYPE_2D;
    ici.format = VK_FORMAT_R32G32B32A32_SFLOAT;
    ici.extent.width = 100;
@@ -159,9 +161,9 @@ create_image(VkImageUsageFlags usage, VkSampleCountFlags samples)
 }
 
 static VkImage
-create_image_bind(VkImageUsageFlags usage, VkSampleCountFlags samples)
+create_image_bind(VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
 {
-   VkImage image = create_image(usage, samples);
+   VkImage image = create_image(usage, samples, mutable);
    VkMemoryRequirements reqs = {0};
    VK(GetImageMemoryRequirements)(dev->dev, image, &reqs);
    unsigned alignment = MAX2(reqs.alignment, 256);
@@ -172,9 +174,9 @@ create_image_bind(VkImageUsageFlags usage, VkSampleCountFlags samples)
 }
 
 static VkImageView
-create_image_helper(VkImage *ret_image, VkImageUsageFlags usage, VkSampleCountFlags samples)
+create_image_helper(VkImage *ret_image, VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
 {
-   VkImage image = create_image_bind(usage, samples);
+   VkImage image = create_image_bind(usage, samples, mutable);
    VkImageViewCreateInfo ivci = {0};
    ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    ivci.image = image;
@@ -195,25 +197,25 @@ create_image_helper(VkImage *ret_image, VkImageUsageFlags usage, VkSampleCountFl
 }
 
 VkImageView
-create_rt(VkImage *ret_image)
+create_rt(VkImage *ret_image, bool mutable)
 {
-   return create_image_helper(ret_image, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0);
+   return create_image_helper(ret_image, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, mutable);
 }
 
 VkImageView
-create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples)
+create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples, bool mutable)
 {
-   return create_image_helper(ret_image, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, samples);
+   return create_image_helper(ret_image, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, samples, mutable);
 }
 
 VkImageView
 create_tex(VkImage *ret_image)
 {
-   return create_image_helper(ret_image, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 0);
+   return create_image_helper(ret_image, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 0, false);
 }
 
 VkImageView
 create_storage_image(VkImage *ret_image)
 {
-   return create_image_helper(ret_image, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT, 0);
+   return create_image_helper(ret_image, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT, 0, false);
 }
