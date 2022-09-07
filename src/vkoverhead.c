@@ -2057,9 +2057,11 @@ main(int argc, char *argv[])
    create_basic_pipelines(render_pass_clear, layout_basic, pipelines_basic);
    create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
    create_vattrib_pipelines(render_pass_clear, layout_basic, pipelines_vattrib);
-   pipeline_vattrib_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
+   if (check_dynamic_vertex_input())
+      pipeline_vattrib_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
    pipeline_multirt = create_multirt_pipeline(render_pass_multirt_clear, layout_basic);
-   pipeline_multrt_dyn = create_multirt_pipeline(VK_NULL_HANDLE, layout_basic);
+   if (check_dynamic_rendering())
+      pipeline_multrt_dyn = create_multirt_pipeline(VK_NULL_HANDLE, layout_basic);
    pipeline_ubo = create_ubo_pipeline(render_pass_clear, layout_ubo);
    pipeline_ssbo = create_ssbo_pipeline(render_pass_clear, layout_ssbo);
    pipeline_ssbo_many = create_ssbo_many_pipeline(render_pass_clear, layout_ssbo_many);
