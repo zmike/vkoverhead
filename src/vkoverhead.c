@@ -37,9 +37,14 @@ struct vk_device *dev;
 
 struct util_queue queue;
 
-struct util_queue_fence fence[MAX_CMDBUF_POOLS];
-static VkCommandPool cmdpool[MAX_CMDBUF_POOLS];
-static VkCommandBuffer cmdbufs[MAX_CMDBUF_POOLS][MAX_CMDBUFS];
+struct pool {
+   struct util_queue_fence fence;
+   VkCommandPool cmdpool;
+   VkCommandBuffer cmdbufs[MAX_CMDBUFS];
+   void *trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
+};
+
+static struct pool pools[MAX_CMDBUF_POOLS];
 static VkCommandBuffer cmdbuf;
 static int cmdbuf_pool_idx;
 static int cmdbuf_idx;
@@ -100,6 +105,8 @@ static VkPipeline pipeline_ibo;
 static VkPipeline pipeline_ibo_many;
 static VkPipeline pipeline_image;
 static VkPipeline pipeline_image_many;
+static VkPipeline pipeline_gpl_basic;
+static VkPipeline pipeline_gpl_vert[2];
 static VkPipeline *pipelines; //this one gets used
 static VkDescriptorSet desc_set_basic[2];
 static VkDescriptorSet desc_set_ubo[2];
@@ -148,20 +155,35 @@ static bool draw_only = false;
 static bool descriptor_only = false;
 static bool misc_only = false;
 
+static util_queue_execute_func cleanup_func = NULL;
+
+static void
+reset_gpl(void *data, void *gdata, int thread_idx)
+{
+   struct pool *p = data;
+   for (unsigned j = 0; j < MAX_CMDBUFS; j++) {
+      for (unsigned k = 0; k < MAX_DRAWS; k++) {
+         VK(DestroyPipeline)(dev->dev, p->trash_ptrs[j][k], NULL);
+         p->trash_ptrs[j][k] = VK_NULL_HANDLE;
+      }
+   }
+}
+
 static void
 reset_cmdbuf(void *data, void *gdata, int thread_idx)
 {
-   VkResult result = VK(ResetCommandPool)(dev->dev, data, 0);
+   struct pool *p = data;
+   VkResult result = VK(ResetCommandPool)(dev->dev, p->cmdpool, 0);
    VK_CHECK("ResetCommandPool", result);
 }
 
 static void
 next_cmdbuf_pool(void)
 {
-   util_queue_add_job(&queue, cmdpool[cmdbuf_pool_idx], &fence[cmdbuf_pool_idx], reset_cmdbuf, NULL, 0);
+   util_queue_add_job(&queue, &pools[cmdbuf_pool_idx], &pools[cmdbuf_pool_idx].fence, reset_cmdbuf, cleanup_func, 0);
    cmdbuf_pool_idx++;
    cmdbuf_pool_idx %= MAX_CMDBUF_POOLS;
-   util_queue_fence_wait(&fence[cmdbuf_pool_idx]);
+   util_queue_fence_wait(&pools[cmdbuf_pool_idx].fence);
 }
 
 static void
@@ -171,7 +193,7 @@ next_cmdbuf(void)
    cmdbuf_idx %= MAX_CMDBUFS;
    if (cmdbuf_idx == 0)
       next_cmdbuf_pool();
-   cmdbuf = cmdbufs[cmdbuf_pool_idx][cmdbuf_idx];
+   cmdbuf = pools[cmdbuf_pool_idx].cmdbufs[cmdbuf_idx];
 }
 
 static void
@@ -355,6 +377,12 @@ static bool
 check_dynamic_vertex_input(void)
 {
    return dev->info.have_EXT_vertex_input_dynamic_state;
+}
+
+static bool
+check_graphics_pipeline_library(void)
+{
+   return dev->info.have_EXT_graphics_pipeline_library;
 }
 
 static bool
@@ -615,6 +643,38 @@ draw_16vattrib_change_dynamic(unsigned iterations)
    }
 }
 
+/* static to avoid runtime overhead */
+static VkGraphicsPipelineCreateInfo draw_16vattrib_change_gpl_pci = {0};
+
+static void
+draw_16vattrib_change_gpl(unsigned iterations)
+{
+   iterations = filter_overflow(draw_16vattrib_change_gpl, iterations, 1);
+   VkPipeline libraries[2];
+   libraries[0] = pipeline_gpl_basic;
+   /* not zero-initialized to avoid potential memset overhead */
+   VkPipelineLibraryCreateInfoKHR libstate = {
+      VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR,
+      NULL,
+      ARRAY_SIZE(libraries),
+      libraries
+   };
+   draw_16vattrib_change_gpl_pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+   draw_16vattrib_change_gpl_pci.pNext = &libstate;
+   cleanup_func = reset_gpl;
+   begin_rp();
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      libraries[1] = pipeline_gpl_vert[i & 1];
+      VkPipeline pipeline;
+      VkResult result = VK(CreateGraphicsPipelines)(dev->dev, VK_NULL_HANDLE, 1, &draw_16vattrib_change_gpl_pci, NULL, &pipeline);
+      VK_CHECK("CreateGraphicsPipelines", result);
+      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = pipeline;
+   }
+   cleanup_func = NULL;
+}
+
 static void
 draw_1ubo_change(unsigned iterations)
 {
@@ -750,7 +810,7 @@ draw_16imagebuffer_change(unsigned iterations)
 static void
 init_submit(unsigned cmdbuf_count, unsigned submit_count, void *si, VkCommandBufferSubmitInfo *csi)
 {
-   VkCommandBuffer *c = cmdbufs[cmdbuf_pool_idx];
+   VkCommandBuffer *c = pools[cmdbuf_pool_idx].cmdbufs;
    unsigned cmdbuf_per_submit = cmdbuf_count / submit_count;
    if (dev->info.have_KHR_synchronization2) {
       VkSubmitInfo2 *s = si;
@@ -1188,6 +1248,7 @@ struct perf_case {
 #define CASE_DYN_MULTIRT(name, ...) {#name, name, &pipeline_multrt_dyn, __VA_ARGS__}
 #define CASE_VATTRIB(name, ...) {#name, name, pipelines_vattrib, __VA_ARGS__}
 #define CASE_VATTRIB_DYNAMIC(name, ...) {#name, name, &pipeline_vattrib_dynamic, __VA_ARGS__}
+#define CASE_VATTRIB_GPL(name, ...) {#name, name, pipelines_basic, __VA_ARGS__}
 #define CASE_UBO(name, ...) {#name, name, &pipeline_ubo, __VA_ARGS__}
 #define CASE_SSBO(name, ...) {#name, name, &pipeline_ssbo, __VA_ARGS__}
 #define CASE_SSBO_MANY(name, ...) {#name, name, &pipeline_ssbo_many, __VA_ARGS__}
@@ -1223,6 +1284,7 @@ static struct perf_case cases_draw[] = {
    CASE_VATTRIB(draw_16vattrib_16vbo_change),
    CASE_VATTRIB(draw_16vattrib_change),
    CASE_VATTRIB_DYNAMIC(draw_16vattrib_change_dynamic, check_dynamic_vertex_input),
+   CASE_VATTRIB_GPL(draw_16vattrib_change_gpl, check_graphics_pipeline_library),
    CASE_BASIC(draw_1ubo_change),
    CASE_UBO(draw_12ubo_change),
    CASE_SAMPLER(draw_1sampler_change),
@@ -1518,7 +1580,7 @@ setup_submit(void)
    next_cmdbuf_pool();
    cmdbuf_idx = 0;
    count = 0;
-   cmdbuf = cmdbufs[cmdbuf_pool_idx][cmdbuf_idx];
+   cmdbuf = pools[cmdbuf_pool_idx].cmdbufs[cmdbuf_idx];
    /* fill every cmdbuf in pool with MAX_DRAWS */
    for (unsigned i = 0; i < MAX_CMDBUFS; i++) {
       begin_rp();
@@ -1530,7 +1592,7 @@ setup_submit(void)
          next_cmdbuf();
    }
    cmdbuf_idx = 0;
-   cmdbuf = cmdbufs[cmdbuf_pool_idx][cmdbuf_idx];
+   cmdbuf = pools[cmdbuf_pool_idx].cmdbufs[cmdbuf_idx];
    submit_init = true;
 }
 
@@ -1663,11 +1725,11 @@ init_cmdbufs(void)
    cbai.commandBufferCount = MAX_CMDBUFS;
 
    for (unsigned i = 0; i < MAX_CMDBUF_POOLS; i++) {
-      util_queue_fence_init(&fence[i]);
-      result = VK(CreateCommandPool)(dev->dev, &cpci, NULL, &cmdpool[i]);
+      util_queue_fence_init(&pools[i].fence);
+      result = VK(CreateCommandPool)(dev->dev, &cpci, NULL, &pools[i].cmdpool);
       VK_CHECK("CreateCommandPool", result);
-      cbai.commandPool = cmdpool[i];
-      result = VK(AllocateCommandBuffers)(dev->dev, &cbai, cmdbufs[i]);
+      cbai.commandPool = pools[i].cmdpool;
+      result = VK(AllocateCommandBuffers)(dev->dev, &cbai, pools[i].cmdbufs);
       VK_CHECK("AllocateCommandBuffers", result);
    }
 }
@@ -2073,8 +2135,13 @@ main(int argc, char *argv[])
    pipeline_tbo_many = create_tbo_many_pipeline(render_pass_clear, layout_tbo_many);
    pipeline_ibo = create_ibo_pipeline(render_pass_clear, layout_ibo);
    pipeline_ibo_many = create_ibo_many_pipeline(render_pass_clear, layout_ibo_many);
+   if (check_graphics_pipeline_library()) {
+      pipeline_gpl_basic = create_gpl_basic_pipeline(render_pass_clear, layout_basic);
+      for (unsigned i = 0; i < ARRAY_SIZE(pipeline_gpl_vert); i++)
+         pipeline_gpl_vert[i] = create_gpl_vert_pipeline(render_pass_clear, layout_basic);
+   }
 
-   cmdbuf = cmdbufs[0][0];
+   cmdbuf = pools[0].cmdbufs[0];
    pipelines = pipelines_basic;
 
    util_queue_init(&queue, "reset", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL, NULL);

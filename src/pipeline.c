@@ -27,7 +27,8 @@
 
 static VkPipeline
 create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModule *modules,
-                VkPipelineVertexInputStateCreateInfo *vertex_input_state, unsigned num_rts, bool dynamic)
+                VkPipelineVertexInputStateCreateInfo *vertex_input_state, unsigned num_rts, bool dynamic,
+                VkGraphicsPipelineLibraryCreateInfoEXT *gplci)
 {
    VkPipelineInputAssemblyStateCreateInfo primitive_state = {0};
    primitive_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -116,14 +117,19 @@ create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModul
       formats[i] = VK_FORMAT_R32G32B32A32_SFLOAT;
    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
    rendering.colorAttachmentCount = num_rts;
+   rendering.pNext = gplci;
    rendering.pColorAttachmentFormats = formats;
 
    VkGraphicsPipelineCreateInfo pci = {0};
    pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
    pci.layout = layout;
    pci.renderPass = render_pass;
+   if (gplci)
+      pci.flags = VK_PIPELINE_CREATE_LIBRARY_BIT_KHR;
    if (!render_pass)
       pci.pNext = &rendering;
+   else
+      pci.pNext = gplci;
    pci.pVertexInputState = vertex_input_state;
    pci.pInputAssemblyState = &primitive_state;
    pci.pRasterizationState = &rast_state;
@@ -222,7 +228,7 @@ create_pipeline_helper(VkPipelineLayout layout, VkRenderPass render_pass, VkShad
    vertex_input_state.pVertexAttributeDescriptions = &vattr;
    vertex_input_state.vertexAttributeDescriptionCount = 1;
    generate_vattribs(&vbinding, &vattr, 1);
-   return create_pipeline(layout, render_pass, modules, &vertex_input_state, num_rts, false);
+   return create_pipeline(layout, render_pass, modules, &vertex_input_state, num_rts, false, NULL);
 }
 
 void
@@ -443,7 +449,7 @@ create_vattrib_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPi
 
    for (unsigned i = 0; i < 4; i++) {
       generate_vattribs(vbinding, vattr, 16);
-      pipelines[i] = create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, false);
+      pipelines[i] = create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, false, NULL);
    }
 }
 
@@ -468,5 +474,55 @@ create_vattrib_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layou
    vertex_input_state.vertexAttributeDescriptionCount = 16;
    generate_vattribs(vbinding, vattr, 16);
 
-   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, true);
+   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, true, NULL);
+}
+
+VkPipeline
+create_gpl_basic_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+{
+   VkShaderModule modules[5] = {
+      create_shader_module(vattrib_vert_spirv, vattrib_vert_spirv_len),
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      create_shader_module(basic_frag_spirv, basic_frag_spirv_len),
+   };
+
+   VkGraphicsPipelineLibraryCreateInfoEXT gplci = {
+      VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
+      NULL,
+      VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT | VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT | VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT
+   };
+
+   return create_pipeline(layout, render_pass, modules, NULL, 1, false, &gplci);
+}
+
+VkPipeline
+create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+{
+   VkShaderModule modules[5] = {
+      create_shader_module(vattrib_vert_spirv, vattrib_vert_spirv_len),
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      create_shader_module(basic_frag_spirv, basic_frag_spirv_len),
+   };
+
+   VkVertexInputBindingDescription vbinding[16];
+   VkVertexInputAttributeDescription vattr[16];
+   VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
+   vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+   vertex_input_state.pVertexBindingDescriptions = vbinding;
+   vertex_input_state.vertexBindingDescriptionCount = 16;
+   vertex_input_state.pVertexAttributeDescriptions = vattr;
+   vertex_input_state.vertexAttributeDescriptionCount = 16;
+   generate_vattribs(vbinding, vattr, 16);
+
+   VkGraphicsPipelineLibraryCreateInfoEXT gplci = {
+      VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
+      NULL,
+      VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT
+   };
+
+   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, false, &gplci);
 }
