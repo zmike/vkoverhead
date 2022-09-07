@@ -41,7 +41,11 @@ struct pool {
    struct util_queue_fence fence;
    VkCommandPool cmdpool;
    VkCommandBuffer cmdbufs[MAX_CMDBUFS];
+#if VK_USE_64_BIT_PTR_DEFINES==1
+   int64_t *trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
+#else
    void *trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
+#endif
 };
 
 static struct pool pools[MAX_CMDBUF_POOLS];
@@ -164,7 +168,7 @@ reset_gpl(void *data, void *gdata, int thread_idx)
    struct pool *p = data;
    for (unsigned j = 0; j < MAX_CMDBUFS; j++) {
       for (unsigned k = 0; k < MAX_DRAWS; k++) {
-         VK(DestroyPipeline)(dev->dev, p->trash_ptrs[j][k], NULL);
+         VK(DestroyPipeline)(dev->dev, (VkPipeline)p->trash_ptrs[j][k], NULL);
          p->trash_ptrs[j][k] = VK_NULL_HANDLE;
       }
    }
@@ -671,7 +675,11 @@ draw_16vattrib_change_gpl(unsigned iterations)
       VK_CHECK("CreateGraphicsPipelines", result);
       VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
-      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = pipeline;
+#if VK_USE_64_BIT_PTR_DEFINES==1
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (int64_t*)pipeline;
+#else
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
+#endif
    }
    cleanup_func = NULL;
 }
