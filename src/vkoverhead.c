@@ -107,6 +107,7 @@ static VkPipeline pipeline_image;
 static VkPipeline pipeline_image_many;
 static VkPipeline pipeline_gpl_basic;
 static VkPipeline pipeline_gpl_vert[2];
+static VkPipeline pipeline_gpl_vert_final[2];
 static VkPipeline *pipelines; //this one gets used
 static VkDescriptorSet desc_set_basic[2];
 static VkDescriptorSet desc_set_ubo[2];
@@ -673,6 +674,17 @@ draw_16vattrib_change_gpl(unsigned iterations)
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = pipeline;
    }
    cleanup_func = NULL;
+}
+
+static void
+draw_16vattrib_change_gpl_precompile(unsigned iterations)
+{
+   iterations = filter_overflow(draw_16vattrib_change_gpl_precompile, iterations, 1);
+   begin_rp();
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_gpl_vert_final[i % 1]);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
 }
 
 static void
@@ -1285,6 +1297,7 @@ static struct perf_case cases_draw[] = {
    CASE_VATTRIB(draw_16vattrib_change),
    CASE_VATTRIB_DYNAMIC(draw_16vattrib_change_dynamic, check_dynamic_vertex_input),
    CASE_VATTRIB_GPL(draw_16vattrib_change_gpl, check_graphics_pipeline_library),
+   CASE_VATTRIB_GPL(draw_16vattrib_change_gpl_precompile, check_graphics_pipeline_library),
    CASE_BASIC(draw_1ubo_change),
    CASE_UBO(draw_12ubo_change),
    CASE_SAMPLER(draw_1sampler_change),
@@ -2137,8 +2150,23 @@ main(int argc, char *argv[])
    pipeline_ibo_many = create_ibo_many_pipeline(render_pass_clear, layout_ibo_many);
    if (check_graphics_pipeline_library()) {
       pipeline_gpl_basic = create_gpl_basic_pipeline(render_pass_clear, layout_basic);
-      for (unsigned i = 0; i < ARRAY_SIZE(pipeline_gpl_vert); i++)
+      VkGraphicsPipelineCreateInfo pci = {0};
+      VkPipeline libraries[2];
+      libraries[0] = pipeline_gpl_basic;
+      VkPipelineLibraryCreateInfoKHR libstate = {
+         VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR,
+         NULL,
+         ARRAY_SIZE(libraries),
+         libraries
+      };
+      pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+      pci.pNext = &libstate;
+      for (unsigned i = 0; i < ARRAY_SIZE(pipeline_gpl_vert); i++) {
          pipeline_gpl_vert[i] = create_gpl_vert_pipeline(render_pass_clear, layout_basic);
+         libraries[1] = pipeline_gpl_vert[i];
+         result = VK(CreateGraphicsPipelines)(dev->dev, VK_NULL_HANDLE, 1, &pci, NULL, &pipeline_gpl_vert_final[i]);
+         VK_CHECK("CreateGraphicsPipelines", result);
+      }
    }
 
    cmdbuf = pools[0].cmdbufs[0];
