@@ -21,11 +21,14 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
+#define XXH_INLINE_ALL
 #include "vkoverhead.h"
 #include "common.h"
+#include "hash_table.h"
+#include "u_memory.h"
 #include "u_queue.h"
 #include "u_cpu_detect.h"
+#include "xxhash.h"
 #include <inttypes.h>
 
 struct vk_device *dev;
@@ -684,13 +687,48 @@ draw_16vattrib_change_gpl(unsigned iterations)
    cleanup_func = NULL;
 }
 
-static void
-draw_16vattrib_change_gpl_precompile(unsigned iterations)
+static VkVertexInputBindingDescription gpl_vbinding[2][16];
+static VkVertexInputAttributeDescription gpl_vattr[2][16];
+struct hash_table gpl_pipeline_table;
+
+static uint32_t
+gpl_hash_vi(const void *data)
 {
-   iterations = filter_overflow(draw_16vattrib_change_gpl_precompile, iterations, 1);
+   uint32_t hash = 0;
+   const VkPipelineVertexInputStateCreateInfo *key = data;
+   hash = XXH32(&key->vertexBindingDescriptionCount, sizeof(key->vertexBindingDescriptionCount), hash);
+   hash = XXH32(&key->vertexAttributeDescriptionCount, sizeof(key->vertexAttributeDescriptionCount), hash);
+   hash = XXH32(key->pVertexBindingDescriptions, key->vertexBindingDescriptionCount * sizeof(VkVertexInputBindingDescription), hash);
+   hash = XXH32(key->pVertexAttributeDescriptions, key->vertexAttributeDescriptionCount * sizeof(VkVertexInputAttributeDescription), hash);
+   return hash;
+}
+
+static bool
+gpl_equals_vi(const void *a, const void *b)
+{
+   const VkPipelineVertexInputStateCreateInfo *key_a = a;
+   const VkPipelineVertexInputStateCreateInfo *key_b = b;
+   return key_a->vertexBindingDescriptionCount == key_b->vertexBindingDescriptionCount &&
+          key_a->vertexAttributeDescriptionCount == key_b->vertexAttributeDescriptionCount &&
+          !memcmp(key_a->pVertexBindingDescriptions, key_b->pVertexBindingDescriptions, key_a->vertexBindingDescriptionCount * sizeof(VkVertexInputBindingDescription)) &&
+          !memcmp(key_a->pVertexAttributeDescriptions, key_b->pVertexAttributeDescriptions, key_a->vertexAttributeDescriptionCount * sizeof(VkVertexInputAttributeDescription));
+}
+
+static void
+draw_16vattrib_change_gpl_hashncache(unsigned iterations)
+{
+   iterations = filter_overflow(draw_16vattrib_change_gpl_hashncache, iterations, 1);
    begin_rp();
+   VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
+   vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+   vertex_input_state.vertexBindingDescriptionCount = 16;
+   vertex_input_state.vertexAttributeDescriptionCount = 16;
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_gpl_vert_final[i % 1]);
+      vertex_input_state.pVertexBindingDescriptions = gpl_vbinding[i & 1];
+      vertex_input_state.pVertexAttributeDescriptions = gpl_vattr[i & 1];
+      struct hash_entry *he = _mesa_hash_table_search(&gpl_pipeline_table, &vertex_input_state);
+      VkPipeline pipeline = he->data;
+      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
@@ -1305,7 +1343,7 @@ static struct perf_case cases_draw[] = {
    CASE_VATTRIB(draw_16vattrib_change),
    CASE_VATTRIB_DYNAMIC(draw_16vattrib_change_dynamic, check_dynamic_vertex_input),
    CASE_VATTRIB_GPL(draw_16vattrib_change_gpl, check_graphics_pipeline_library),
-   CASE_VATTRIB_GPL(draw_16vattrib_change_gpl_precompile, check_graphics_pipeline_library),
+   CASE_VATTRIB_GPL(draw_16vattrib_change_gpl_hashncache, check_graphics_pipeline_library),
    CASE_BASIC(draw_1ubo_change),
    CASE_UBO(draw_12ubo_change),
    CASE_SAMPLER(draw_1sampler_change),
@@ -2169,11 +2207,24 @@ main(int argc, char *argv[])
       };
       pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
       pci.pNext = &libstate;
+      _mesa_hash_table_init(&gpl_pipeline_table, NULL, gpl_hash_vi, gpl_equals_vi);
+      VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
+      vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+      vertex_input_state.vertexBindingDescriptionCount = 16;
+      vertex_input_state.vertexAttributeDescriptionCount = 16;
       for (unsigned i = 0; i < ARRAY_SIZE(pipeline_gpl_vert); i++) {
-         pipeline_gpl_vert[i] = create_gpl_vert_pipeline(render_pass_clear, layout_basic);
+         vertex_input_state.pVertexBindingDescriptions = gpl_vbinding[i];
+         vertex_input_state.pVertexAttributeDescriptions = gpl_vattr[i];
+         pipeline_gpl_vert[i] = create_gpl_vert_pipeline(render_pass_clear, layout_basic, &vertex_input_state);
          libraries[1] = pipeline_gpl_vert[i];
          result = VK(CreateGraphicsPipelines)(dev->dev, VK_NULL_HANDLE, 1, &pci, NULL, &pipeline_gpl_vert_final[i]);
          VK_CHECK("CreateGraphicsPipelines", result);
+         {
+            VkPipelineVertexInputStateCreateInfo *key = mem_dup(&vertex_input_state, sizeof(VkPipelineVertexInputStateCreateInfo));
+            key->pVertexBindingDescriptions = mem_dup(vertex_input_state.pVertexBindingDescriptions, vertex_input_state.vertexBindingDescriptionCount * sizeof(VkVertexInputBindingDescription));
+            key->pVertexAttributeDescriptions = mem_dup(vertex_input_state.pVertexAttributeDescriptions, vertex_input_state.vertexAttributeDescriptionCount * sizeof(VkVertexInputAttributeDescription));
+            _mesa_hash_table_insert(&gpl_pipeline_table, key, pipeline_gpl_vert_final[i]);
+         }
       }
    }
 

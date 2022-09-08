@@ -498,7 +498,7 @@ create_gpl_basic_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
 }
 
 VkPipeline
-create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineVertexInputStateCreateInfo *vertex_input_state)
 {
    VkShaderModule modules[5] = {
       create_shader_module(vattrib_vert_spirv, vattrib_vert_spirv_len),
@@ -508,15 +508,9 @@ create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(basic_frag_spirv, basic_frag_spirv_len),
    };
 
-   VkVertexInputBindingDescription vbinding[16];
-   VkVertexInputAttributeDescription vattr[16];
-   VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
-   vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-   vertex_input_state.pVertexBindingDescriptions = vbinding;
-   vertex_input_state.vertexBindingDescriptionCount = 16;
-   vertex_input_state.pVertexAttributeDescriptions = vattr;
-   vertex_input_state.vertexAttributeDescriptionCount = 16;
-   generate_vattribs(vbinding, vattr, 16);
+   VkVertexInputBindingDescription *vattrs = (void*)vertex_input_state->pVertexBindingDescriptions;
+   VkVertexInputAttributeDescription *vbindings = (void*)vertex_input_state->pVertexAttributeDescriptions;
+   generate_vattribs(vattrs, vbindings, 16);
 
    VkGraphicsPipelineLibraryCreateInfoEXT gplci = {
       VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
@@ -524,5 +518,5 @@ create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT
    };
 
-   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, false, &gplci);
+   return create_pipeline(layout, render_pass, modules, vertex_input_state, 1, false, &gplci);
 }
