@@ -34,6 +34,7 @@
 #ifndef U_MEMORY_H
 #define U_MEMORY_H
 
+#include "util/u_debug.h"
 #include "util/os_memory.h"
 
 
