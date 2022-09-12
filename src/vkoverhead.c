@@ -162,6 +162,7 @@ static bool submit_only = false;
 static bool draw_only = false;
 static bool descriptor_only = false;
 static bool misc_only = false;
+static bool output_only = false;
 
 static util_queue_execute_func cleanup_func = NULL;
 
@@ -1757,16 +1758,19 @@ perf_run(unsigned case_idx, double base_rate, double duration)
              name,
              color ? COLOR_RESET : "");
    } else {
-      printf(" %3u, %s,%s %s%5"PRIu64"%s, %s%s%.1f%%%s\n",
-             case_idx, p->name,
-             space,
-             color ? COLOR_CYAN : "",
-             r,
-             color ? COLOR_RESET : "",
-             space2,
-             color ? ratio_color : "",
-             100 * ratio,
-             color ? COLOR_RESET : "");
+      if (output_only)
+         printf("%5"PRIu64"\n", r);
+      else
+         printf(" %3u, %s,%s %s%5"PRIu64"%s, %s%s%.1f%%%s\n",
+                case_idx, p->name,
+                space,
+                color ? COLOR_CYAN : "",
+                r,
+                color ? COLOR_RESET : "",
+                space2,
+                color ? ratio_color : "",
+                100 * ratio,
+                color ? COLOR_RESET : "");
    }
    return rate;
 }
@@ -1842,6 +1846,8 @@ parse_args(int argc, const char **argv)
          next_arg_is_duration = true;
       else if (!strcmp(arg, "nocolor"))
          color = false;
+      else if (!strcmp(arg, "output-only"))
+         output_only = true;
       else if (!strcmp(arg, "submit-only"))
          submit_only = true;
       else if (!strcmp(arg, "draw-only"))
@@ -1861,7 +1867,7 @@ parse_args(int argc, const char **argv)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
-         fprintf(stderr, "vkoverhead [-list] [-test TESTNUM] [-nocolor] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
+         fprintf(stderr, "vkoverhead [-list] [-test TESTNUM] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
          exit(0);
       }
    }
@@ -2276,21 +2282,24 @@ main(int argc, char *argv[])
       VK_CHECK("QueueWaitIdle", result);
    }
    next_cmdbuf();
-   printf("vkoverhead running:\n");
-   if (!submit_only && !descriptor_only && !misc_only)
+   if (!output_only)
+      printf("vkoverhead running:\n");
+   if (!submit_only && !descriptor_only && !misc_only && !output_only)
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
    double base_rate = 0;
    if (test_no > -1) {
-      if (!draw_only && !descriptor_only && !misc_only)
-         printf("\t* submit numbers are reported as operations per second\n"
-                "\t* percentages for submit cases are relative to 'submit_noop'\n");
-      if (!draw_only && !submit_only && !misc_only)
-         printf("\t* descriptor numbers are reported as thousands of operations per second\n"
-                "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
-      if (!draw_only && !submit_only && !descriptor_only)
-         printf("\t* misc numbers are reported as thousands of operations per second\n"
-                "\t* percentages for misc cases should be ignored\n");
+      if (!output_only) {
+         if (!draw_only && !descriptor_only && !misc_only)
+            printf("\t* submit numbers are reported as operations per second\n"
+                   "\t* percentages for submit cases are relative to 'submit_noop'\n");
+         if (!draw_only && !submit_only && !misc_only)
+            printf("\t* descriptor numbers are reported as thousands of operations per second\n"
+                   "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
+         if (!draw_only && !submit_only && !descriptor_only)
+            printf("\t* misc numbers are reported as thousands of operations per second\n"
+                   "\t* percentages for misc cases should be ignored\n");
+      }
       perf_run(test_no, base_rate, duration);
    } else {
       if (!submit_only && !descriptor_only && !misc_only) {
@@ -2299,8 +2308,9 @@ main(int argc, char *argv[])
             perf_run(i, base_rate, duration);
       }
       if (!draw_only && !descriptor_only && !misc_only) {
-         printf("\t* submit numbers are reported as operations per second\n"
-                "\t* percentages for submit cases are relative to 'submit_noop'\n");
+         if (!output_only)
+            printf("\t* submit numbers are reported as operations per second\n"
+                   "\t* percentages for submit cases are relative to 'submit_noop'\n");
          base_rate = perf_run(ARRAY_SIZE(cases_draw), 0, duration);
          for (unsigned i = 1; i < ARRAY_SIZE(cases_submit); i++)
             perf_run(ARRAY_SIZE(cases_draw) + i, base_rate, duration);
@@ -2311,15 +2321,17 @@ main(int argc, char *argv[])
          }
       }
       if (!draw_only && !submit_only && !misc_only) {
-         printf("\t* descriptor numbers are reported as thousands of operations per second\n"
-                "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
+         if (!output_only)
+            printf("\t* descriptor numbers are reported as thousands of operations per second\n"
+                   "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
          base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit), 0, duration);
          for (unsigned i = 1; i < ARRAY_SIZE(cases_descriptor); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + i, base_rate, duration);
       }
       if (!draw_only && !submit_only && !descriptor_only) {
-         printf("\t* misc numbers are reported as thousands of operations per second\n"
-                "\t* percentages for misc cases should be ignored\n");
+         if (!output_only)
+            printf("\t* misc numbers are reported as thousands of operations per second\n"
+                   "\t* percentages for misc cases should be ignored\n");
          base_rate = 0;
          for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + i, base_rate, duration);
