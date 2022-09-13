@@ -199,7 +199,7 @@ create_image_helper(VkImage *ret_image, VkImageUsageFlags usage, VkSampleCountFl
 VkImageView
 create_rt(VkImage *ret_image, bool mutable)
 {
-   return create_image_helper(ret_image, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, mutable);
+   return create_image_helper(ret_image, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, 0, mutable);
 }
 
 VkImageView

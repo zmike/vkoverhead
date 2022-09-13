@@ -167,7 +167,8 @@ static VkDescriptorBufferInfo dbi[2][MAX_UBOS] = {0};
 static VkDescriptorBufferInfo dbi_storage[2][MAX_SSBOS] = {0};
 static VkDescriptorImageInfo dii[2][MAX_SAMPLERS] = {0};
 static VkDescriptorImageInfo dii_storage[2][MAX_IMAGES] = {0};
-static VkImage copy_image[2]; //normal, mutable
+static VkImage copy_image_src[2]; //normal, mutable
+static VkImage copy_image_dst[2]; //normal, mutable
 static VkImage copy_image_ms[2]; //normal, mutable
 
 static VkMultiDrawInfoEXT draws[500];
@@ -1220,7 +1221,7 @@ resolve(unsigned iterations, bool mutable)
    r.sType = VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2;
    r.srcImage = copy_image_ms[mutable];
    r.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-   r.dstImage = copy_image[mutable];
+   r.dstImage = copy_image_dst[mutable];
    r.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
    r.regionCount = 1;
    r.pRegions = &resolve;
@@ -1231,7 +1232,7 @@ resolve(unsigned iterations, bool mutable)
    imb[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
    imb[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
    imb[0].image = copy_image_ms[mutable];
-   imb[1].image = copy_image[mutable];
+   imb[1].image = copy_image_dst[mutable];
    imb[1].subresourceRange = imb[0].subresourceRange = default_subresourcerange();
 
    for (unsigned i = 0; i < iterations; i++, count++) {
@@ -1273,6 +1274,76 @@ misc_resolve_mutable(unsigned iterations)
    if (!cmdbuf_active)
       begin_cmdbuf();
    resolve(iterations, true);
+}
+
+
+static void
+copy(unsigned iterations, bool mutable)
+{
+   VkImageCopy2 copy = {0};
+   copy.sType = VK_STRUCTURE_TYPE_IMAGE_COPY_2;
+   copy.dstSubresource = copy.srcSubresource = default_subresourcerangelayers();
+   copy.extent.width = 100;
+   copy.extent.height = 100;
+   copy.extent.depth = 1;
+
+   VkCopyImageInfo2 r = {0};
+   r.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2;
+   r.srcImage = copy_image_src[mutable];
+   r.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+   r.dstImage = copy_image_dst[mutable];
+   r.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+   r.regionCount = 1;
+   r.pRegions = &copy;
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+
+   VkImageMemoryBarrier imb[2] = {0};
+   imb[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+   imb[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+   imb[0].image = copy_image_src[mutable];
+   imb[1].image = copy_image_dst[mutable];
+   imb[1].subresourceRange = imb[0].subresourceRange = default_subresourcerange();
+
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      imb[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+      imb[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      imb[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+      imb[1].srcAccessMask = 0;
+      imb[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      imb[1].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+      imb[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+      VK(CmdCopyImage2)(cmdbuf, &r);
+      imb[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+      imb[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      imb[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+      imb[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      imb[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      imb[1].dstAccessMask = 0;
+      imb[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      imb[1].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+   }
+}
+
+static void
+misc_copy(unsigned iterations)
+{
+   iterations = filter_overflow(misc_copy, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   copy(iterations, false);
+}
+
+static void
+misc_copy_mutable(unsigned iterations)
+{
+   iterations = filter_overflow(misc_copy_mutable, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   copy(iterations, true);
 }
 
 struct perf_case {
@@ -1398,6 +1469,8 @@ static struct perf_case cases_descriptor[] = {
 static struct perf_case cases_misc[] = {
    CASE_MISC(misc_resolve),
    CASE_MISC(misc_resolve_mutable),
+   CASE_MISC(misc_copy),
+   CASE_MISC(misc_copy_mutable),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
@@ -1454,9 +1527,13 @@ setup(void)
       img[i] = create_storage_image(&storage_image[i]);
       setup_image(storage_image[i], VK_IMAGE_LAYOUT_GENERAL);
    }
-   for (unsigned i = 0; i < ARRAY_SIZE(copy_image); i++) {
-      create_rt(&copy_image[i], i);
-      setup_image(copy_image[i], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+   for (unsigned i = 0; i < ARRAY_SIZE(copy_image_src); i++) {
+      create_rt(&copy_image_src[i], i);
+      setup_image(copy_image_src[i], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+   }
+   for (unsigned i = 0; i < ARRAY_SIZE(copy_image_dst); i++) {
+      create_rt(&copy_image_dst[i], i);
+      setup_image(copy_image_dst[i], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
    }
    for (unsigned i = 0; i < ARRAY_SIZE(copy_image_ms); i++) {
       create_rt_ms(&copy_image_ms[i], VK_SAMPLE_COUNT_4_BIT, false);
