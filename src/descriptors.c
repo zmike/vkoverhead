@@ -25,12 +25,14 @@
 #include "vkoverhead.h"
 
 VkDescriptorSetLayout
-create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings)
+create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push)
 {
    VkDescriptorSetLayout desc_layout;
    VkDescriptorSetLayoutCreateInfo dcslci = {0};
    dcslci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
    dcslci.pNext = NULL;
+   if (push)
+      dcslci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
    VkDescriptorSetLayoutBindingFlagsCreateInfo fci = {0};
    VkDescriptorBindingFlags flags[128] = {0};
    dcslci.pNext = &fci;

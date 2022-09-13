@@ -83,6 +83,18 @@ static VkPipelineLayout layout_ibo;
 static VkPipelineLayout layout_ibo_many;
 static VkPipelineLayout layout_image;
 static VkPipelineLayout layout_image_many;
+static VkPipelineLayout layout_basic_push;
+static VkPipelineLayout layout_ubo_push;
+static VkPipelineLayout layout_ssbo_push;
+static VkPipelineLayout layout_ssbo_many_push;
+static VkPipelineLayout layout_sampler_push;
+static VkPipelineLayout layout_sampler_many_push;
+static VkPipelineLayout layout_tbo_push;
+static VkPipelineLayout layout_tbo_many_push;
+static VkPipelineLayout layout_ibo_push;
+static VkPipelineLayout layout_ibo_many_push;
+static VkPipelineLayout layout_image_push;
+static VkPipelineLayout layout_image_many_push;
 static VkDescriptorUpdateTemplateKHR template_basic;
 static VkDescriptorUpdateTemplateKHR template_ubo;
 static VkDescriptorUpdateTemplateKHR template_ssbo;
@@ -95,6 +107,18 @@ static VkDescriptorUpdateTemplateKHR template_ibo;
 static VkDescriptorUpdateTemplateKHR template_ibo_many;
 static VkDescriptorUpdateTemplateKHR template_image;
 static VkDescriptorUpdateTemplateKHR template_image_many;
+static VkDescriptorUpdateTemplateKHR template_basic_push;
+static VkDescriptorUpdateTemplateKHR template_ubo_push;
+static VkDescriptorUpdateTemplateKHR template_ssbo_push;
+static VkDescriptorUpdateTemplateKHR template_ssbo_many_push;
+static VkDescriptorUpdateTemplateKHR template_sampler_push;
+static VkDescriptorUpdateTemplateKHR template_sampler_many_push;
+static VkDescriptorUpdateTemplateKHR template_tbo_push;
+static VkDescriptorUpdateTemplateKHR template_tbo_many_push;
+static VkDescriptorUpdateTemplateKHR template_ibo_push;
+static VkDescriptorUpdateTemplateKHR template_ibo_many_push;
+static VkDescriptorUpdateTemplateKHR template_image_push;
+static VkDescriptorUpdateTemplateKHR template_image_many_push;
 static VkPipeline pipelines_basic[NUM_PIPELINE_VARIANTS];
 static VkPipeline pipelines_vattrib[NUM_PIPELINE_VARIANTS];
 static VkPipeline pipelines_dyn[NUM_PIPELINE_VARIANTS];
@@ -404,6 +428,12 @@ static bool
 check_descriptor_template(void)
 {
    return dev->info.have_KHR_descriptor_update_template;
+}
+
+static bool
+check_push_descriptor(void)
+{
+   return dev->info.have_KHR_push_descriptor && check_descriptor_template();
 }
 
 static void
@@ -1225,6 +1255,31 @@ descriptor_template_16imagebuffer(unsigned iterations)
    }
 }
 
+#define PUSH_DESCRIPTOR_CASE(NAME, SUFFIX, DATA) \
+static void \
+descriptor_template_##NAME##_push(unsigned iterations) \
+{ \
+   iterations = filter_overflow(descriptor_template_##NAME##_push, iterations, 1); \
+   if (!cmdbuf_active) \
+      begin_cmdbuf(); \
+   for (unsigned i = 0; i < iterations; i++) { \
+      VK(CmdPushDescriptorSetWithTemplateKHR)(cmdbuf, template_##SUFFIX##_push, layout_##SUFFIX##_push, 0, DATA[i & 1]); \
+   } \
+}
+
+PUSH_DESCRIPTOR_CASE(1ubo, basic, dbi)
+PUSH_DESCRIPTOR_CASE(12ubo, ubo, dbi)
+PUSH_DESCRIPTOR_CASE(1ssbo, ssbo, dbi_storage)
+PUSH_DESCRIPTOR_CASE(8ssbo, ssbo_many, dbi_storage)
+PUSH_DESCRIPTOR_CASE(1sampler, sampler, dii)
+PUSH_DESCRIPTOR_CASE(16sampler, sampler_many, dii)
+PUSH_DESCRIPTOR_CASE(1image, image, dii_storage)
+PUSH_DESCRIPTOR_CASE(16image, image_many, dii_storage)
+PUSH_DESCRIPTOR_CASE(1texelbuffer, tbo, tbo_views)
+PUSH_DESCRIPTOR_CASE(16texelbuffer, tbo_many, tbo_views)
+PUSH_DESCRIPTOR_CASE(1imagebuffer, ibo, ibo_views)
+PUSH_DESCRIPTOR_CASE(16imagebuffer, ibo_many, ibo_views)
+
 static void
 resolve(unsigned iterations, bool mutable)
 {
@@ -1370,34 +1425,47 @@ static struct perf_case cases_submit[] = {
 };
 
 #define CASE_DESCRIPTOR(name, ...) {#name, name, pipelines_basic, __VA_ARGS__}
-#define CASE_DESCRIPTOR_TEMPLATE(name, ...) {#name, name, pipelines_basic, check_descriptor_template}
+#define CASE_DESCRIPTOR_TEMPLATE(name) {#name, name, pipelines_basic, check_descriptor_template}
+#define CASE_DESCRIPTOR_PUSH(name) {#name, name, pipelines_basic, check_push_descriptor}
 
 static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_noop),
    CASE_DESCRIPTOR(descriptor_1ubo),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1ubo),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1ubo_push),
    CASE_DESCRIPTOR(descriptor_12ubo),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_12ubo),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_12ubo_push),
    CASE_DESCRIPTOR(descriptor_1sampler),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1sampler),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1sampler_push),
    CASE_DESCRIPTOR(descriptor_16sampler),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16sampler),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_16sampler_push),
    CASE_DESCRIPTOR(descriptor_1texelbuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1texelbuffer),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1texelbuffer_push),
    CASE_DESCRIPTOR(descriptor_16texelbuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16texelbuffer),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_16texelbuffer_push),
    CASE_DESCRIPTOR(descriptor_1ssbo),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1ssbo),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1ssbo_push),
    CASE_DESCRIPTOR(descriptor_8ssbo),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_8ssbo),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_8ssbo_push),
    CASE_DESCRIPTOR(descriptor_1image),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1image),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1image_push),
    CASE_DESCRIPTOR(descriptor_16image),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16image),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_16image_push),
    CASE_DESCRIPTOR(descriptor_1imagebuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1imagebuffer),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1imagebuffer_push),
    CASE_DESCRIPTOR(descriptor_16imagebuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16imagebuffer),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_16imagebuffer_push),
 };
 
 #define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
@@ -1876,6 +1944,7 @@ parse_args(int argc, const char **argv)
 static void
 init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
                       VkPipelineLayout *layout, VkDescriptorUpdateTemplate *template,
+                      VkPipelineLayout *push_layout, VkDescriptorUpdateTemplate *push_template,
                       VkDescriptorSet *sets, unsigned set_count)
 {
    VkDescriptorUpdateTemplateEntry template_entry = {0};
@@ -1890,7 +1959,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
    binding.descriptorType = descriptorType;
    binding.descriptorCount = descriptorCount;
    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
+   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1, false);
    VkDescriptorPoolSize size = {0};
    size.type = descriptorType;
    size.descriptorCount = descriptorCount;
@@ -1924,6 +1993,15 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
       }
       VkResult result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, template);
       VK_CHECK("CreateDescriptorUpdateTemplate", result);
+
+      if (dev->info.have_KHR_push_descriptor) {
+         desc_layout = create_descriptor_layout(&binding, 1, true);
+         *push_layout = create_pipeline_layout(&desc_layout, 1);
+         tci.descriptorSetLayout = desc_layout;
+         tci.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR;
+         VkResult result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, push_template);
+         VK_CHECK("CreateDescriptorUpdateTemplate", result);
+      }
    }
 }
 
@@ -1952,18 +2030,17 @@ main(int argc, char *argv[])
    dyn_multirt.pColorAttachments = dyn_att_multirt;
 
    unsigned max_images = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &layout_basic, &template_basic, desc_set_basic, ARRAY_SIZE(desc_set_basic));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_UBOS, &layout_ubo, &template_ubo, desc_set_ubo, ARRAY_SIZE(desc_set_ubo));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &layout_ssbo, &template_ssbo, desc_set_ssbo, ARRAY_SIZE(desc_set_ssbo));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SSBOS, &layout_ssbo_many, &template_ssbo_many, desc_set_ssbo_many, ARRAY_SIZE(desc_set_ssbo_many));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &layout_sampler, &template_sampler, desc_set_sampler, ARRAY_SIZE(desc_set_sampler));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SAMPLERS, &layout_sampler_many, &template_sampler_many, desc_set_sampler_many, ARRAY_SIZE(desc_set_sampler_many));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &layout_image, &template_image, desc_set_image, ARRAY_SIZE(desc_set_image));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, max_images, &layout_image_many, &template_image_many, desc_set_image_many, ARRAY_SIZE(desc_set_image_many));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1, &layout_tbo, &template_tbo, desc_set_tbo, ARRAY_SIZE(desc_set_tbo));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, MAX_SAMPLERS, &layout_tbo_many, &template_tbo_many, desc_set_tbo_many, ARRAY_SIZE(desc_set_tbo_many));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1, &layout_ibo, &template_ibo, desc_set_ibo, ARRAY_SIZE(desc_set_ibo));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, max_images, &layout_ibo_many, &template_ibo_many, desc_set_ibo_many, ARRAY_SIZE(desc_set_ibo_many));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &layout_basic, &template_basic, &layout_basic_push, &template_basic_push, desc_set_basic, ARRAY_SIZE(desc_set_basic));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_UBOS, &layout_ubo, &template_ubo, &layout_ubo_push, &template_ubo_push, desc_set_ubo, ARRAY_SIZE(desc_set_ubo));
+   #define INIT_DESCRIPTOR(TYPE, SUFFIX, LIMIT) \
+   init_descriptor_state(TYPE, 1, &layout_##SUFFIX, &template_##SUFFIX, &layout_##SUFFIX##_push, &template_##SUFFIX##_push, desc_set_##SUFFIX, ARRAY_SIZE(desc_set_##SUFFIX)); \
+   init_descriptor_state(TYPE, LIMIT, &layout_##SUFFIX##_many, &template_##SUFFIX##_many, &layout_##SUFFIX##_many_push, &template_##SUFFIX##_many_push, desc_set_##SUFFIX##_many, ARRAY_SIZE(desc_set_##SUFFIX##_many));
+
+   INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ssbo, MAX_SSBOS);
+   INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, MAX_SAMPLERS);
+   INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, image, max_images);
+   INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, tbo, MAX_SAMPLERS);
+   INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, ibo, max_images);
 
 
    create_basic_pipelines(render_pass_clear, layout_basic, pipelines_basic);
