@@ -1159,101 +1159,27 @@ descriptor_16imagebuffer(unsigned iterations)
    }
 }
 
-static void
-descriptor_template_1ubo(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_basic[0], template_basic, dbi[i & 1]);
-   }
+#define TEMPLATE_DESCRIPTOR_CASE(NAME, SUFFIX, DATA) \
+static void \
+descriptor_template_##NAME(unsigned iterations) \
+{ \
+   for (unsigned i = 0; i < iterations; i++) { \
+      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_##SUFFIX[0], template_##SUFFIX, DATA[i & 1]); \
+   } \
 }
 
-static void
-descriptor_template_12ubo(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_ubo[0], template_ubo, dbi[i & 1]);
-   }
-}
-
-static void
-descriptor_template_1ssbo(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_ssbo[0], template_ssbo, dbi_storage[i & 1]);
-   }
-}
-
-static void
-descriptor_template_8ssbo(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_ssbo_many[0], template_ssbo_many, dbi_storage[i & 1]);
-   }
-}
-
-static void
-descriptor_template_1sampler(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_sampler[0], template_sampler, dii[i & 1]);
-   }
-}
-
-static void
-descriptor_template_16sampler(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_sampler_many[0], template_sampler_many, dii[i & 1]);
-   }
-}
-
-static void
-descriptor_template_1image(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_image[0], template_image, dii_storage[i & 1]);
-   }
-}
-
-static void
-descriptor_template_16image(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_image_many[0], template_image_many, dii_storage[i & 1]);
-   }
-}
-
-static void
-descriptor_template_1texelbuffer(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_tbo[0], template_tbo, tbo_views[i & 1]);
-   }
-}
-
-static void
-descriptor_template_16texelbuffer(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_tbo_many[0], template_tbo_many, tbo_views[i & 1]);
-   }
-}
-
-static void
-descriptor_template_1imagebuffer(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_ibo[0], template_ibo, ibo_views[i & 1]);
-   }
-}
-
-static void
-descriptor_template_16imagebuffer(unsigned iterations)
-{
-   for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_ibo_many[0], template_ibo_many, ibo_views[i & 1]);
-   }
-}
+TEMPLATE_DESCRIPTOR_CASE(1ubo, basic, dbi)
+TEMPLATE_DESCRIPTOR_CASE(12ubo, ubo, dbi)
+TEMPLATE_DESCRIPTOR_CASE(1ssbo, ssbo, dbi_storage)
+TEMPLATE_DESCRIPTOR_CASE(8ssbo, ssbo_many, dbi_storage)
+TEMPLATE_DESCRIPTOR_CASE(1sampler, sampler, dii)
+TEMPLATE_DESCRIPTOR_CASE(16sampler, sampler_many, dii)
+TEMPLATE_DESCRIPTOR_CASE(1image, image, dii_storage)
+TEMPLATE_DESCRIPTOR_CASE(16image, image_many, dii_storage)
+TEMPLATE_DESCRIPTOR_CASE(1texelbuffer, tbo, tbo_views)
+TEMPLATE_DESCRIPTOR_CASE(16texelbuffer, tbo_many, tbo_views)
+TEMPLATE_DESCRIPTOR_CASE(1imagebuffer, ibo, ibo_views)
+TEMPLATE_DESCRIPTOR_CASE(16imagebuffer, ibo_many, ibo_views)
 
 #define PUSH_DESCRIPTOR_CASE(NAME, SUFFIX, DATA) \
 static void \
