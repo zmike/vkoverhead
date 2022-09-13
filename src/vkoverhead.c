@@ -1208,14 +1208,26 @@ PUSH_DESCRIPTOR_CASE(1imagebuffer, ibo, ibo_views)
 PUSH_DESCRIPTOR_CASE(16imagebuffer, ibo_many, ibo_views)
 
 static void
-resolve(unsigned iterations, bool mutable)
+resolve(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_regions)
 {
-   VkImageResolve2 resolve = {0};
-   resolve.sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
-   resolve.dstSubresource = resolve.srcSubresource = default_subresourcerangelayers();
-   resolve.extent.width = 100;
-   resolve.extent.height = 100;
-   resolve.extent.depth = 1;
+   VkImageResolve2 resolve[4] = {0};
+   unsigned region_count = multiple_regions ? ARRAY_SIZE(resolve) : 1;
+   for (unsigned i = 0; i < region_count; i++) {
+      resolve[i].sType = VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2;
+      resolve[i].dstSubresource = resolve[i].srcSubresource = default_subresourcerangelayers();
+      resolve[i].srcOffset.z = 0;
+      resolve[i].srcOffset.x = i * (100 / region_count);
+      resolve[i].srcOffset.y = i * (100 / region_count);
+      if (mismatched_regions) {
+         resolve[i].srcOffset.x = (region_count - i - 1) * (100 / region_count);
+         resolve[i].srcOffset.y = (region_count - i - 1) * (100 / region_count);
+      } else {
+         resolve[i].dstOffset = resolve[i].srcOffset;
+      }
+      resolve[i].extent.width = 100 / region_count;
+      resolve[i].extent.height = 100 / region_count;
+      resolve[i].extent.depth = 1;
+   }
 
    VkResolveImageInfo2 r = {0};
    r.sType = VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2;
@@ -1223,8 +1235,8 @@ resolve(unsigned iterations, bool mutable)
    r.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
    r.dstImage = copy_image_dst[mutable];
    r.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-   r.regionCount = 1;
-   r.pRegions = &resolve;
+   r.regionCount = region_count;
+   r.pRegions = resolve;
    if (!cmdbuf_active)
       begin_cmdbuf();
 
@@ -1264,7 +1276,25 @@ misc_resolve(unsigned iterations)
    iterations = filter_overflow(misc_resolve, iterations, 1);
    if (!cmdbuf_active)
       begin_cmdbuf();
-   resolve(iterations, false);
+   resolve(iterations, false, false, false);
+}
+
+static void
+misc_resolve_4region(unsigned iterations)
+{
+   iterations = filter_overflow(misc_resolve_4region, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   resolve(iterations, false, true, false);
+}
+
+static void
+misc_resolve_4region_mismatched(unsigned iterations)
+{
+   iterations = filter_overflow(misc_resolve_4region_mismatched, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   resolve(iterations, false, true, true);
 }
 
 static void
@@ -1273,7 +1303,25 @@ misc_resolve_mutable(unsigned iterations)
    iterations = filter_overflow(misc_resolve_mutable, iterations, 1);
    if (!cmdbuf_active)
       begin_cmdbuf();
-   resolve(iterations, true);
+   resolve(iterations, true, false, false);
+}
+
+static void
+misc_resolve_mutable_4region(unsigned iterations)
+{
+   iterations = filter_overflow(misc_resolve_mutable_4region, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   resolve(iterations, true, true, false);
+}
+
+static void
+misc_resolve_mutable_4region_mismatched(unsigned iterations)
+{
+   iterations = filter_overflow(misc_resolve_mutable_4region_mismatched, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   resolve(iterations, true, true, true);
 }
 
 
@@ -1516,7 +1564,11 @@ static struct perf_case cases_descriptor[] = {
 #define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
 static struct perf_case cases_misc[] = {
    CASE_MISC(misc_resolve),
+   CASE_MISC(misc_resolve_4region),
+   CASE_MISC(misc_resolve_4region_mismatched),
    CASE_MISC(misc_resolve_mutable),
+   CASE_MISC(misc_resolve_mutable_4region),
+   CASE_MISC(misc_resolve_mutable_4region_mismatched),
    CASE_MISC(misc_copy),
    CASE_MISC(misc_copy_4region),
    CASE_MISC(misc_copy_4region_mismatched),
