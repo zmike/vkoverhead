@@ -1873,6 +1873,60 @@ parse_args(int argc, const char **argv)
    }
 }
 
+static void
+init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
+                      VkPipelineLayout *layout, VkDescriptorUpdateTemplate *template,
+                      VkDescriptorSet *sets, unsigned set_count)
+{
+   VkDescriptorUpdateTemplateEntry template_entry = {0};
+   VkDescriptorUpdateTemplateCreateInfo tci = {0};
+   tci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
+   tci.descriptorUpdateEntryCount = 1;
+   tci.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
+   tci.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+   tci.pDescriptorUpdateEntries = &template_entry;
+
+   VkDescriptorSetLayoutBinding binding = {0};
+   binding.descriptorType = descriptorType;
+   binding.descriptorCount = descriptorCount;
+   binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
+   VkDescriptorPoolSize size = {0};
+   size.type = descriptorType;
+   size.descriptorCount = descriptorCount;
+   for (unsigned i = 0; i < set_count; i++)
+      sets[i] = create_descriptor_set(desc_layout, &size);
+   *layout = create_pipeline_layout(&desc_layout, 1);
+   if (dev->info.have_KHR_descriptor_update_template) {
+      tci.descriptorSetLayout = desc_layout;
+      tci.pipelineLayout = *layout;
+      template_entry.descriptorCount = descriptorCount;
+      template_entry.descriptorType = descriptorType;
+      switch (descriptorType) {
+      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+      case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+      case VK_DESCRIPTOR_TYPE_SAMPLER:
+      case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+      case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+         template_entry.stride = sizeof(VkDescriptorImageInfo);
+         break;
+      case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+         template_entry.stride = sizeof(VkDescriptorBufferInfo);
+         break;
+      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+         template_entry.stride = sizeof(VkBufferView);
+         break;
+      default:
+         unreachable("???");
+      }
+      VkResult result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, template);
+      VK_CHECK("CreateDescriptorUpdateTemplate", result);
+   }
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1897,289 +1951,20 @@ main(int argc, char *argv[])
    dyn_multirt.colorAttachmentCount = MAX_RTS;
    dyn_multirt.pColorAttachments = dyn_att_multirt;
 
-   VkDescriptorUpdateTemplateEntry template_entry = {0};
-   VkDescriptorUpdateTemplateCreateInfo tci = {0};
-   tci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
-   tci.descriptorUpdateEntryCount = 1;
-   tci.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET;
-   tci.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-   tci.pDescriptorUpdateEntries = &template_entry;
+   unsigned max_images = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &layout_basic, &template_basic, desc_set_basic, ARRAY_SIZE(desc_set_basic));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_UBOS, &layout_ubo, &template_ubo, desc_set_ubo, ARRAY_SIZE(desc_set_ubo));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &layout_ssbo, &template_ssbo, desc_set_ssbo, ARRAY_SIZE(desc_set_ssbo));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SSBOS, &layout_ssbo_many, &template_ssbo_many, desc_set_ssbo_many, ARRAY_SIZE(desc_set_ssbo_many));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &layout_sampler, &template_sampler, desc_set_sampler, ARRAY_SIZE(desc_set_sampler));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SAMPLERS, &layout_sampler_many, &template_sampler_many, desc_set_sampler_many, ARRAY_SIZE(desc_set_sampler_many));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &layout_image, &template_image, desc_set_image, ARRAY_SIZE(desc_set_image));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, max_images, &layout_image_many, &template_image_many, desc_set_image_many, ARRAY_SIZE(desc_set_image_many));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1, &layout_tbo, &template_tbo, desc_set_tbo, ARRAY_SIZE(desc_set_tbo));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, MAX_SAMPLERS, &layout_tbo_many, &template_tbo_many, desc_set_tbo_many, ARRAY_SIZE(desc_set_tbo_many));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1, &layout_ibo, &template_ibo, desc_set_ibo, ARRAY_SIZE(desc_set_ibo));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, max_images, &layout_ibo_many, &template_ibo_many, desc_set_ibo_many, ARRAY_SIZE(desc_set_ibo_many));
 
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      binding.descriptorCount = 1;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      size.descriptorCount = 1;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_basic); i++)
-         desc_set_basic[i] = create_descriptor_set(desc_layout, &size);
-      layout_basic = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_basic;
-         template_entry.descriptorCount = 1;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-         template_entry.stride = sizeof(VkDescriptorBufferInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_basic);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      binding.descriptorCount = MAX_UBOS;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      size.descriptorCount = MAX_UBOS;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ubo); i++)
-         desc_set_ubo[i] = create_descriptor_set(desc_layout, &size);
-      layout_ubo = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_ubo;
-         template_entry.descriptorCount = MAX_UBOS;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-         template_entry.stride = sizeof(VkDescriptorBufferInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_ubo);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      binding.descriptorCount = 1;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      size.descriptorCount = 1;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ssbo); i++)
-         desc_set_ssbo[i] = create_descriptor_set(desc_layout, &size);
-      layout_ssbo = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_ssbo;
-         template_entry.descriptorCount = 1;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-         template_entry.stride = sizeof(VkDescriptorBufferInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_ssbo);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      binding.descriptorCount = MAX_SSBOS;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      size.descriptorCount = MAX_SSBOS;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ssbo_many); i++)
-         desc_set_ssbo_many[i] = create_descriptor_set(desc_layout, &size);
-      layout_ssbo_many = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_ssbo_many;
-         template_entry.descriptorCount = MAX_SSBOS;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-         template_entry.stride = sizeof(VkDescriptorBufferInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_ssbo_many);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      binding.descriptorCount = 1;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      size.descriptorCount = 1;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_sampler); i++)
-         desc_set_sampler[i] = create_descriptor_set(desc_layout, &size);
-      layout_sampler = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_sampler;
-         template_entry.descriptorCount = 1;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-         template_entry.stride = sizeof(VkDescriptorImageInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_sampler);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      binding.descriptorCount = MAX_SAMPLERS;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      size.descriptorCount = MAX_SAMPLERS;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_sampler_many); i++)
-         desc_set_sampler_many[i] = create_descriptor_set(desc_layout, &size);
-      layout_sampler_many = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_sampler_many;
-         template_entry.descriptorCount = MAX_SAMPLERS;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-         template_entry.stride = sizeof(VkDescriptorImageInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_sampler_many);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      binding.descriptorCount = 1;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      size.descriptorCount = 1;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_image); i++)
-         desc_set_image[i] = create_descriptor_set(desc_layout, &size);
-      layout_image = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_image;
-         template_entry.descriptorCount = 1;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-         template_entry.stride = sizeof(VkDescriptorImageInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_image);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      binding.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      size.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_image_many); i++)
-         desc_set_image_many[i] = create_descriptor_set(desc_layout, &size);
-      layout_image_many = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_image_many;
-         template_entry.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-         template_entry.stride = sizeof(VkDescriptorImageInfo);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_image_many);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-      binding.descriptorCount = 1;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-      size.descriptorCount = 1;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_tbo); i++)
-         desc_set_tbo[i] = create_descriptor_set(desc_layout, &size);
-      layout_tbo = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_tbo;
-         template_entry.descriptorCount = 1;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-         template_entry.stride = sizeof(VkBufferView);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_tbo);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-      binding.descriptorCount = MAX_SAMPLERS;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-      size.descriptorCount = MAX_SAMPLERS;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_tbo_many); i++)
-         desc_set_tbo_many[i] = create_descriptor_set(desc_layout, &size);
-      layout_tbo_many = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_tbo_many;
-         template_entry.descriptorCount = MAX_SAMPLERS;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-         template_entry.stride = sizeof(VkBufferView);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_tbo_many);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-      binding.descriptorCount = 1;
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-      size.descriptorCount = 1;
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ibo); i++)
-         desc_set_ibo[i] = create_descriptor_set(desc_layout, &size);
-      layout_ibo = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_ibo;
-         template_entry.descriptorCount = 1;
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-         template_entry.stride = sizeof(VkBufferView);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_ibo);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
-
-   {
-      VkDescriptorSetLayoutBinding binding = {0};
-      binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-      binding.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-      binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-      VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1);
-      VkDescriptorPoolSize size = {0};
-      size.type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-      size.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-      for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ibo_many); i++)
-         desc_set_ibo_many[i] = create_descriptor_set(desc_layout, &size);
-      layout_ibo_many = create_pipeline_layout(&desc_layout, 1);
-      if (dev->info.have_KHR_descriptor_update_template) {
-         tci.descriptorSetLayout = desc_layout;
-         tci.pipelineLayout = layout_ibo_many;
-         template_entry.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-         template_entry.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-         template_entry.stride = sizeof(VkBufferView);
-         result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, &template_ibo_many);
-         VK_CHECK("CreateDescriptorUpdateTemplate", result);
-      }
-   }
 
    create_basic_pipelines(render_pass_clear, layout_basic, pipelines_basic);
    create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
