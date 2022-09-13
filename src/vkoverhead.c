@@ -1278,14 +1278,26 @@ misc_resolve_mutable(unsigned iterations)
 
 
 static void
-copy(unsigned iterations, bool mutable)
+copy(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_regions)
 {
-   VkImageCopy2 copy = {0};
-   copy.sType = VK_STRUCTURE_TYPE_IMAGE_COPY_2;
-   copy.dstSubresource = copy.srcSubresource = default_subresourcerangelayers();
-   copy.extent.width = 100;
-   copy.extent.height = 100;
-   copy.extent.depth = 1;
+   VkImageCopy2 copy[4] = {0};
+   unsigned region_count = multiple_regions ? ARRAY_SIZE(copy) : 1;
+   for (unsigned i = 0; i < region_count; i++) {
+      copy[i].sType = VK_STRUCTURE_TYPE_IMAGE_COPY_2;
+      copy[i].dstSubresource = copy[i].srcSubresource = default_subresourcerangelayers();
+      copy[i].srcOffset.z = 0;
+      copy[i].srcOffset.x = i * (100 / region_count);
+      copy[i].srcOffset.y = i * (100 / region_count);
+      if (mismatched_regions) {
+         copy[i].srcOffset.x = (region_count - i - 1) * (100 / region_count);
+         copy[i].srcOffset.y = (region_count - i - 1) * (100 / region_count);
+      } else {
+         copy[i].dstOffset = copy[i].srcOffset;
+      }
+      copy[i].extent.width = 100 / region_count;
+      copy[i].extent.height = 100 / region_count;
+      copy[i].extent.depth = 1;
+   }
 
    VkCopyImageInfo2 r = {0};
    r.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2;
@@ -1293,8 +1305,8 @@ copy(unsigned iterations, bool mutable)
    r.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
    r.dstImage = copy_image_dst[mutable];
    r.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-   r.regionCount = 1;
-   r.pRegions = &copy;
+   r.regionCount = region_count;
+   r.pRegions = copy;
    if (!cmdbuf_active)
       begin_cmdbuf();
 
@@ -1334,7 +1346,25 @@ misc_copy(unsigned iterations)
    iterations = filter_overflow(misc_copy, iterations, 1);
    if (!cmdbuf_active)
       begin_cmdbuf();
-   copy(iterations, false);
+   copy(iterations, false, false, false);
+}
+
+static void
+misc_copy_4region(unsigned iterations)
+{
+   iterations = filter_overflow(misc_copy_4region, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   copy(iterations, false, true, false);
+}
+
+static void
+misc_copy_4region_mismatched(unsigned iterations)
+{
+   iterations = filter_overflow(misc_copy_4region_mismatched, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   copy(iterations, false, true, true);
 }
 
 static void
@@ -1343,7 +1373,25 @@ misc_copy_mutable(unsigned iterations)
    iterations = filter_overflow(misc_copy_mutable, iterations, 1);
    if (!cmdbuf_active)
       begin_cmdbuf();
-   copy(iterations, true);
+   copy(iterations, true, false, false);
+}
+
+static void
+misc_copy_mutable_4region(unsigned iterations)
+{
+   iterations = filter_overflow(misc_copy_mutable_4region, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   copy(iterations, true, true, false);
+}
+
+static void
+misc_copy_mutable_4region_mismatched(unsigned iterations)
+{
+   iterations = filter_overflow(misc_copy_mutable_4region_mismatched, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   copy(iterations, true, true, true);
 }
 
 struct perf_case {
@@ -1470,7 +1518,11 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_resolve),
    CASE_MISC(misc_resolve_mutable),
    CASE_MISC(misc_copy),
+   CASE_MISC(misc_copy_4region),
+   CASE_MISC(misc_copy_4region_mismatched),
    CASE_MISC(misc_copy_mutable),
+   CASE_MISC(misc_copy_mutable_4region),
+   CASE_MISC(misc_copy_mutable_4region_mismatched),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
