@@ -450,6 +450,7 @@ static void
 draw_multi(unsigned iterations)
 {
    iterations = filter_overflow(draw_multi, iterations, ARRAY_SIZE(draws_indexed));
+   render_pass = render_pass_dontcare;
    begin_rp();
    int32_t offset = 0;
    for (unsigned i = 0; i < iterations; i++, count += ARRAY_SIZE(draws_indexed)) {
@@ -559,6 +560,7 @@ static void
 draw_multirt(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt, iterations, 1);
+   render_pass = render_pass_dontcare;
    begin_rp();
    for (unsigned i = 0; i < iterations; i++, count++)
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
