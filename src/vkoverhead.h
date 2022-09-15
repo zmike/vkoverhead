@@ -35,8 +35,8 @@ extern struct vk_device *dev;
 #define MAX_SSBOS 8 //technically spec only mandates 4, but cmon.
 #define MAX_IMAGES 8 //spec mandates 4, and v3dv only has 4, so use detection
 
-VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push);
-VkDescriptorSet create_descriptor_set(VkDescriptorSetLayout desc_layout, VkDescriptorPoolSize *size);
+VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, void *pNext);
+VkDescriptorSet create_descriptor_set(VkDescriptorSetLayout desc_layout, VkDescriptorPoolSize *size, bool host, void *pNext);
 VkRenderPass create_renderpass(unsigned num_rts, bool clear);
 VkFramebuffer create_framebuffer(unsigned num_rts, VkRenderPass render_pass);
 VkPipelineLayout create_pipeline_layout(VkDescriptorSetLayout *desc_layouts, unsigned num_desc_layouts);

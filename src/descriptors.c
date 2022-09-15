@@ -25,14 +25,16 @@
 #include "vkoverhead.h"
 
 VkDescriptorSetLayout
-create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push)
+create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, void *pNext)
 {
    VkDescriptorSetLayout desc_layout;
    VkDescriptorSetLayoutCreateInfo dcslci = {0};
    dcslci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-   dcslci.pNext = NULL;
+   dcslci.pNext = pNext;
    if (push)
-      dcslci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+      dcslci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+   if (host)
+      dcslci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_HOST_ONLY_POOL_BIT_EXT;
    VkDescriptorSetLayoutBindingFlagsCreateInfo fci = {0};
    VkDescriptorBindingFlags flags[128] = {0};
    dcslci.pNext = &fci;
@@ -43,7 +45,7 @@ create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bi
    dcslci.pBindings = bindings;
    VkDescriptorSetLayoutSupport supp;
    supp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_SUPPORT;
-   supp.pNext = NULL;
+   supp.pNext = pNext;
    supp.supported = VK_FALSE;
    VK(GetDescriptorSetLayoutSupport)(dev->dev, &dcslci, &supp);
    if (supp.supported == VK_FALSE) {
@@ -56,10 +58,13 @@ create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bi
 }
 
 static VkDescriptorPool
-create_descriptor_pool(VkDescriptorPoolSize *sizes, unsigned num_sizes)
+create_descriptor_pool(VkDescriptorPoolSize *sizes, unsigned num_sizes, bool host, void *pNext)
 {
    VkDescriptorPoolCreateInfo dpci = {0};
    dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+   dpci.pNext = pNext;
+   if (host)
+      dpci.flags |= VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_EXT;
    dpci.pPoolSizes = sizes;
    dpci.poolSizeCount = num_sizes;
    dpci.maxSets = 1;
@@ -70,11 +75,11 @@ create_descriptor_pool(VkDescriptorPoolSize *sizes, unsigned num_sizes)
 }
 
 VkDescriptorSet
-create_descriptor_set(VkDescriptorSetLayout desc_layout, VkDescriptorPoolSize *size)
+create_descriptor_set(VkDescriptorSetLayout desc_layout, VkDescriptorPoolSize *size, bool host, void *pNext)
 {
    VkDescriptorSetAllocateInfo dsai = {0};
    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-   dsai.descriptorPool = create_descriptor_pool(size, 1);
+   dsai.descriptorPool = create_descriptor_pool(size, 1, host, pNext);
    dsai.descriptorSetCount = 1;
    dsai.pSetLayouts = &desc_layout;
 

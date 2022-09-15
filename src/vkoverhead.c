@@ -152,6 +152,19 @@ static VkDescriptorSet desc_set_tbo[2];
 static VkDescriptorSet desc_set_tbo_many[2];
 static VkDescriptorSet desc_set_ibo[2];
 static VkDescriptorSet desc_set_ibo_many[2];
+/* these are all [host, gpu] */
+static VkDescriptorSet desc_set_basic_mutable[2];
+static VkDescriptorSet desc_set_ubo_mutable[2];
+static VkDescriptorSet desc_set_ssbo_mutable[2];
+static VkDescriptorSet desc_set_ssbo_many_mutable[2];
+static VkDescriptorSet desc_set_sampler_mutable[2];
+static VkDescriptorSet desc_set_sampler_many_mutable[2];
+static VkDescriptorSet desc_set_image_mutable[2];
+static VkDescriptorSet desc_set_image_many_mutable[2];
+static VkDescriptorSet desc_set_tbo_mutable[2];
+static VkDescriptorSet desc_set_tbo_many_mutable[2];
+static VkDescriptorSet desc_set_ibo_mutable[2];
+static VkDescriptorSet desc_set_ibo_many_mutable[2];
 static VkBuffer vbo[16];
 static VkBuffer ubo[MAX_UBOS];
 static VkBuffer ssbo[MAX_SSBOS];
@@ -1367,6 +1380,162 @@ descriptor_copy_16imagebuffer(unsigned iterations)
    }
 }
 
+static void
+descriptor_copy_mutable_1ubo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_basic_mutable[0];
+   cds.srcSet = desc_set_basic_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_12ubo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_UBOS;
+   cds.dstSet = desc_set_ubo_mutable[0];
+   cds.srcSet = desc_set_ubo_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_1ssbo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_ssbo_mutable[0];
+   cds.srcSet = desc_set_ssbo_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_8ssbo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SSBOS;
+   cds.dstSet = desc_set_ssbo_many_mutable[0];
+   cds.srcSet = desc_set_ssbo_many_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_1sampler(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_sampler_mutable[0];
+   cds.srcSet = desc_set_sampler_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_16sampler(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SAMPLERS;
+   cds.dstSet = desc_set_sampler_many_mutable[0];
+   cds.srcSet = desc_set_sampler_many_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_1image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_image_mutable[0];
+   cds.srcSet = desc_set_image_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_16image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
+   cds.dstSet = desc_set_image_many_mutable[0];
+   cds.srcSet = desc_set_image_many_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_1texelbuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_tbo_mutable[0];
+   cds.srcSet = desc_set_tbo_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_16texelbuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SAMPLERS;
+   cds.dstSet = desc_set_tbo_many_mutable[0];
+   cds.srcSet = desc_set_tbo_many_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_1imagebuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_ibo_mutable[0];
+   cds.srcSet = desc_set_ibo_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_16imagebuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
+   cds.dstSet = desc_set_ibo_many_mutable[0];
+   cds.srcSet = desc_set_ibo_many_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
 
 static void
 resolve(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_regions)
@@ -1732,6 +1901,18 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_copy_16image),
    CASE_DESCRIPTOR(descriptor_copy_1imagebuffer),
    CASE_DESCRIPTOR(descriptor_copy_16imagebuffer),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1ubo),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_12ubo),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1sampler),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16sampler),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1texelbuffer),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16texelbuffer),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1ssbo),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_8ssbo),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1image),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16image),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1imagebuffer),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16imagebuffer),
 };
 
 #define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
@@ -1855,9 +2036,13 @@ only_submit:
    wds.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
    wds.descriptorCount = 1;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_basic); i++) {
-      wds.dstSet = desc_set_basic[i];
       wds.pBufferInfo = &dbi[0][i];
+      wds.dstSet = desc_set_basic[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_basic_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    if (submit_only)
@@ -1886,14 +2071,22 @@ only_submit:
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ubo); i++) {
       wds.dstSet = desc_set_ubo[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_ubo_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
    wds.descriptorCount = 1;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ssbo); i++) {
-      wds.dstSet = desc_set_ssbo[i];
       wds.pBufferInfo = dbi_storage[i];
+      wds.dstSet = desc_set_ssbo[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_ssbo_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorCount = MAX_SSBOS;
@@ -1901,14 +2094,22 @@ only_submit:
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ssbo_many); i++) {
       wds.dstSet = desc_set_ssbo_many[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_ssbo_many_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
    wds.descriptorCount = 1;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_sampler); i++) {
-      wds.dstSet = desc_set_sampler[i];
       wds.pImageInfo = dii[i];
+      wds.dstSet = desc_set_sampler[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_sampler_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorCount = MAX_SAMPLERS;
@@ -1916,29 +2117,45 @@ only_submit:
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_sampler_many); i++) {
       wds.dstSet = desc_set_sampler_many[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_sampler_many_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
    wds.descriptorCount = 1;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_tbo); i++) {
-      wds.dstSet = desc_set_tbo[i];
       wds.pTexelBufferView = tbo_views[i];
+      wds.dstSet = desc_set_tbo[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_tbo_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorCount = MAX_SAMPLERS;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_tbo_many); i++) {
-      wds.dstSet = desc_set_tbo_many[i];
       wds.pTexelBufferView = tbo_views[i];
+      wds.dstSet = desc_set_tbo_many[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_tbo_many_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
    wds.descriptorCount = 1;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_image); i++) {
-      wds.dstSet = desc_set_image[i];
       wds.pImageInfo = dii_storage[i];
+      wds.dstSet = desc_set_image[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_image_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
@@ -1946,21 +2163,33 @@ only_submit:
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_image_many); i++) {
       wds.dstSet = desc_set_image_many[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_image_many_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
    wds.descriptorCount = 1;
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ibo); i++) {
-      wds.dstSet = desc_set_ibo[i];
       wds.pTexelBufferView = ibo_views[i];
+      wds.dstSet = desc_set_ibo[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_ibo_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    wds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    for (unsigned i = 0; i < ARRAY_SIZE(desc_set_ibo_many); i++) {
-      wds.dstSet = desc_set_ibo_many[i];
       wds.pTexelBufferView = ibo_views[i];
+      wds.dstSet = desc_set_ibo_many[i];
       VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      if (dev->info.have_EXT_mutable_descriptor_type) {
+         wds.dstSet = desc_set_ibo_many_mutable[i];
+         VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      }
    }
 
    if (!dev->info.have_KHR_dynamic_rendering)
@@ -2232,9 +2461,25 @@ static void
 init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
                       VkPipelineLayout *layout, VkDescriptorUpdateTemplate *template,
                       VkPipelineLayout *push_layout, VkDescriptorUpdateTemplate *push_template,
-                      VkDescriptorSet *sets, unsigned set_count)
+                      VkDescriptorSet *sets, VkDescriptorSet *mutable_sets, unsigned set_count)
 {
    VkDescriptorUpdateTemplateEntry template_entry = {0};
+   VkMutableDescriptorTypeListEXT mutable = {0};
+   VkDescriptorType types[] = {
+      VK_DESCRIPTOR_TYPE_SAMPLER,
+      VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+      VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+      VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+      VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+   };
+   mutable.descriptorTypeCount = ARRAY_SIZE(types);
+   VkMutableDescriptorTypeCreateInfoEXT minfo = {0};
+   minfo.sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT;
+   minfo.mutableDescriptorTypeListCount = 1;
+   minfo.pMutableDescriptorTypeLists = &mutable;
+
    VkDescriptorUpdateTemplateCreateInfo tci = {0};
    tci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
    tci.descriptorUpdateEntryCount = 1;
@@ -2246,12 +2491,18 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
    binding.descriptorType = descriptorType;
    binding.descriptorCount = descriptorCount;
    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1, false);
+   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1, false, false, NULL);
    VkDescriptorPoolSize size = {0};
    size.type = descriptorType;
    size.descriptorCount = descriptorCount;
    for (unsigned i = 0; i < set_count; i++)
-      sets[i] = create_descriptor_set(desc_layout, &size);
+      sets[i] = create_descriptor_set(desc_layout, &size, false, NULL);
+   if (dev->info.have_EXT_mutable_descriptor_type) {
+      for (unsigned i = 0; i < set_count; i++) {
+         VkDescriptorSetLayout mutable_desc_layout = create_descriptor_layout(&binding, 1, false, !i, &minfo);
+         mutable_sets[i] = create_descriptor_set(mutable_desc_layout, &size, !i, &minfo);
+      }
+   }
    *layout = create_pipeline_layout(&desc_layout, 1);
    if (dev->info.have_KHR_descriptor_update_template) {
       tci.descriptorSetLayout = desc_layout;
@@ -2282,7 +2533,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
       VK_CHECK("CreateDescriptorUpdateTemplate", result);
 
       if (dev->info.have_KHR_push_descriptor) {
-         desc_layout = create_descriptor_layout(&binding, 1, true);
+         desc_layout = create_descriptor_layout(&binding, 1, true, false, NULL);
          *push_layout = create_pipeline_layout(&desc_layout, 1);
          tci.descriptorSetLayout = desc_layout;
          tci.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR;
@@ -2317,18 +2568,17 @@ main(int argc, char *argv[])
    dyn_multirt.pColorAttachments = dyn_att_multirt;
 
    unsigned max_images = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &layout_basic, &template_basic, &layout_basic_push, &template_basic_push, desc_set_basic, ARRAY_SIZE(desc_set_basic));
-   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_UBOS, &layout_ubo, &template_ubo, &layout_ubo_push, &template_ubo_push, desc_set_ubo, ARRAY_SIZE(desc_set_ubo));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &layout_basic, &template_basic, &layout_basic_push, &template_basic_push, desc_set_basic, desc_set_basic_mutable, ARRAY_SIZE(desc_set_basic));
+   init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_UBOS, &layout_ubo, &template_ubo, &layout_ubo_push, &template_ubo_push, desc_set_ubo, desc_set_ubo_mutable, ARRAY_SIZE(desc_set_ubo));
    #define INIT_DESCRIPTOR(TYPE, SUFFIX, LIMIT) \
-   init_descriptor_state(TYPE, 1, &layout_##SUFFIX, &template_##SUFFIX, &layout_##SUFFIX##_push, &template_##SUFFIX##_push, desc_set_##SUFFIX, ARRAY_SIZE(desc_set_##SUFFIX)); \
-   init_descriptor_state(TYPE, LIMIT, &layout_##SUFFIX##_many, &template_##SUFFIX##_many, &layout_##SUFFIX##_many_push, &template_##SUFFIX##_many_push, desc_set_##SUFFIX##_many, ARRAY_SIZE(desc_set_##SUFFIX##_many));
+   init_descriptor_state(TYPE, 1, &layout_##SUFFIX, &template_##SUFFIX, &layout_##SUFFIX##_push, &template_##SUFFIX##_push, desc_set_##SUFFIX, desc_set_##SUFFIX##_mutable, ARRAY_SIZE(desc_set_##SUFFIX)); \
+   init_descriptor_state(TYPE, LIMIT, &layout_##SUFFIX##_many, &template_##SUFFIX##_many, &layout_##SUFFIX##_many_push, &template_##SUFFIX##_many_push, desc_set_##SUFFIX##_many, desc_set_##SUFFIX##_many_mutable, ARRAY_SIZE(desc_set_##SUFFIX##_many));
 
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ssbo, MAX_SSBOS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, MAX_SAMPLERS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, image, max_images);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, tbo, MAX_SAMPLERS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, ibo, max_images);
-
 
    create_basic_pipelines(render_pass_clear, layout_basic, pipelines_basic);
    create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
