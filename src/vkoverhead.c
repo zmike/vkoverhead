@@ -182,6 +182,7 @@ static bool submit_init = false;
 /* cmdline options */
 static double duration = 1.0;
 static int test_no = -1;
+static int start_no = -1;
 static bool color = true;
 static bool submit_only = false;
 static bool draw_only = false;
@@ -1987,22 +1988,27 @@ static void
 parse_args(int argc, const char **argv)
 {
    bool next_arg_is_test_no = false;
+   bool next_arg_is_start_no = false;
    bool next_arg_is_duration = false;
    for (int i = 0; i < argc; i++) {
-      if (next_arg_is_test_no) {
+      if (next_arg_is_test_no || next_arg_is_start_no) {
          errno = 0;
          int val = strtol(argv[i], NULL, 10);
          if (errno || val < 0 || val >= TOTAL_CASES) {
             fprintf(stderr, "Invalid test number specified\n");
             abort();
          }
-         test_no = val;
-         if (test_no < ARRAY_SIZE(cases_draw))
-            draw_only = true;
-         else if (test_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))
-            submit_only = true;
-         else
-            descriptor_only = true;
+         if (next_arg_is_test_no) {
+            test_no = val;
+            if (test_no < ARRAY_SIZE(cases_draw))
+               draw_only = true;
+            else if (test_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))
+               submit_only = true;
+            else
+               descriptor_only = true;
+         } else if (next_arg_is_start_no) {
+            start_no = val;
+         }
       } else if (next_arg_is_duration) {
          errno = 0;
          double val = strtod(argv[i], NULL);
@@ -2019,6 +2025,8 @@ parse_args(int argc, const char **argv)
       const char *arg = &argv[i][1];
       if (!strcmp(arg, "test"))
          next_arg_is_test_no = true;
+      if (!strcmp(arg, "start"))
+         next_arg_is_start_no = true;
       else if (!strcmp(arg, "duration"))
          next_arg_is_duration = true;
       else if (!strcmp(arg, "nocolor"))
@@ -2044,7 +2052,7 @@ parse_args(int argc, const char **argv)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
-         fprintf(stderr, "vkoverhead [-list] [-test TESTNUM] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
+         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
          exit(0);
       }
    }
@@ -2255,7 +2263,7 @@ main(int argc, char *argv[])
    next_cmdbuf();
    if (!output_only)
       printf("vkoverhead running:\n");
-   if (!submit_only && !descriptor_only && !misc_only && !output_only)
+   if (!submit_only && !descriptor_only && !misc_only && start_no < ARRAY_SIZE(cases_draw))
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
    double base_rate = 0;
@@ -2273,39 +2281,51 @@ main(int argc, char *argv[])
       }
       perf_run(test_no, base_rate, duration);
    } else {
-      if (!submit_only && !descriptor_only && !misc_only) {
+      if (!submit_only && !descriptor_only && !misc_only && start_no < ARRAY_SIZE(cases_draw)) {
          base_rate = perf_run(0, 0, duration);
-         for (unsigned i = 1; i < ARRAY_SIZE(cases_draw); i++)
+         unsigned start = start_no == -1 ? 1 : start_no;
+         for (unsigned i = start; i < ARRAY_SIZE(cases_draw); i++)
             perf_run(i, base_rate, duration);
+         if (start != 1)
+            return 0;
       }
-      if (!draw_only && !descriptor_only && !misc_only) {
+      if (!draw_only && !descriptor_only && !misc_only && start_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
          if (!output_only)
             printf("\t* submit numbers are reported as operations per second\n"
                    "\t* percentages for submit cases are relative to 'submit_noop'\n");
          base_rate = perf_run(ARRAY_SIZE(cases_draw), 0, duration);
-         for (unsigned i = 1; i < ARRAY_SIZE(cases_submit); i++)
+         unsigned start = start_no == -1 ? 1 : (start_no - ARRAY_SIZE(cases_draw));
+         for (unsigned i = start; i < ARRAY_SIZE(cases_submit); i++)
             perf_run(ARRAY_SIZE(cases_draw) + i, base_rate, duration);
          if (!submit_only) {
             /* avoid clobbering in-use resources */
             result = VK(QueueWaitIdle)(dev->queue);
             VK_CHECK("QueueWaitIdle", result);
          }
+         if (start != 1)
+            return 0;
       }
-      if (!draw_only && !submit_only && !misc_only) {
+      if (!draw_only && !submit_only && !misc_only && start_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)) {
          if (!output_only)
             printf("\t* descriptor numbers are reported as thousands of operations per second\n"
                    "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
          base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit), 0, duration);
-         for (unsigned i = 1; i < ARRAY_SIZE(cases_descriptor); i++)
+         unsigned start = start_no == -1 ? 1 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)));
+         for (unsigned i = start; i < ARRAY_SIZE(cases_descriptor); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + i, base_rate, duration);
+         if (start != 1)
+            return 0;
       }
       if (!draw_only && !submit_only && !descriptor_only) {
          if (!output_only)
             printf("\t* misc numbers are reported as thousands of operations per second\n"
                    "\t* percentages for misc cases should be ignored\n");
          base_rate = 0;
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
+         unsigned start = start_no == -1 ? 0 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)));
+         for (unsigned i = start; i < ARRAY_SIZE(cases_misc); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + i, base_rate, duration);
+         if (start != 0)
+            return 0;
       }
    }
 
