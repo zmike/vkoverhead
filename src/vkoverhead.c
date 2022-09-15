@@ -1210,6 +1210,164 @@ PUSH_DESCRIPTOR_CASE(16texelbuffer, tbo_many, tbo_views)
 PUSH_DESCRIPTOR_CASE(1imagebuffer, ibo, ibo_views)
 PUSH_DESCRIPTOR_CASE(16imagebuffer, ibo_many, ibo_views)
 
+
+static void
+descriptor_copy_1ubo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_basic[0];
+   cds.srcSet = desc_set_basic[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_12ubo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_UBOS;
+   cds.dstSet = desc_set_ubo[0];
+   cds.srcSet = desc_set_ubo[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_1ssbo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_ssbo[0];
+   cds.srcSet = desc_set_ssbo[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_8ssbo(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SSBOS;
+   cds.dstSet = desc_set_ssbo_many[0];
+   cds.srcSet = desc_set_ssbo_many[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_1sampler(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_sampler[0];
+   cds.srcSet = desc_set_sampler[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_16sampler(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SAMPLERS;
+   cds.dstSet = desc_set_sampler_many[0];
+   cds.srcSet = desc_set_sampler_many[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_1image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_image[0];
+   cds.srcSet = desc_set_image[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_16image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
+   cds.dstSet = desc_set_image_many[0];
+   cds.srcSet = desc_set_image_many[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_1texelbuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_tbo[0];
+   cds.srcSet = desc_set_tbo[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_16texelbuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SAMPLERS;
+   cds.dstSet = desc_set_tbo_many[0];
+   cds.srcSet = desc_set_tbo_many[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_1imagebuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_ibo[0];
+   cds.srcSet = desc_set_ibo[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_16imagebuffer(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
+   cds.dstSet = desc_set_ibo_many[0];
+   cds.srcSet = desc_set_ibo_many[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+
 static void
 resolve(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_regions)
 {
@@ -1562,6 +1720,18 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_16imagebuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16imagebuffer),
    CASE_DESCRIPTOR_PUSH(descriptor_template_16imagebuffer_push),
+   CASE_DESCRIPTOR(descriptor_copy_1ubo),
+   CASE_DESCRIPTOR(descriptor_copy_12ubo),
+   CASE_DESCRIPTOR(descriptor_copy_1sampler),
+   CASE_DESCRIPTOR(descriptor_copy_16sampler),
+   CASE_DESCRIPTOR(descriptor_copy_1texelbuffer),
+   CASE_DESCRIPTOR(descriptor_copy_16texelbuffer),
+   CASE_DESCRIPTOR(descriptor_copy_1ssbo),
+   CASE_DESCRIPTOR(descriptor_copy_8ssbo),
+   CASE_DESCRIPTOR(descriptor_copy_1image),
+   CASE_DESCRIPTOR(descriptor_copy_16image),
+   CASE_DESCRIPTOR(descriptor_copy_1imagebuffer),
+   CASE_DESCRIPTOR(descriptor_copy_16imagebuffer),
 };
 
 #define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
