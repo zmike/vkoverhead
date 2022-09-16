@@ -451,6 +451,12 @@ check_push_descriptor(void)
    return dev->info.have_KHR_push_descriptor && check_descriptor_template();
 }
 
+static bool
+check_mutable_descriptor(void)
+{
+   return dev->info.have_EXT_mutable_descriptor_type;
+}
+
 static void
 draw(unsigned iterations)
 {
@@ -1901,18 +1907,18 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_copy_16image),
    CASE_DESCRIPTOR(descriptor_copy_1imagebuffer),
    CASE_DESCRIPTOR(descriptor_copy_16imagebuffer),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_1ubo),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_12ubo),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_1sampler),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_16sampler),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_1texelbuffer),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_16texelbuffer),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_1ssbo),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_8ssbo),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_1image),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_16image),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_1imagebuffer),
-   CASE_DESCRIPTOR(descriptor_copy_mutable_16imagebuffer),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1ubo, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_12ubo, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1sampler, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16sampler, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1texelbuffer, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16texelbuffer, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1ssbo, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_8ssbo, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1image, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16image, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1imagebuffer, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16imagebuffer, check_mutable_descriptor),
 };
 
 #define CASE_MISC(name, ...) {#name, name, NULL, __VA_ARGS__}
