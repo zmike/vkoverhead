@@ -2689,7 +2689,7 @@ main(int argc, char *argv[])
    next_cmdbuf();
    if (!output_only)
       printf("vkoverhead running:\n");
-   if (!submit_only && !descriptor_only && !misc_only && start_no < ARRAY_SIZE(cases_draw))
+   if (!submit_only && !descriptor_only && !misc_only && start_no < (int)ARRAY_SIZE(cases_draw))
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
    double base_rate = 0;
@@ -2707,7 +2707,7 @@ main(int argc, char *argv[])
       }
       perf_run(test_no, base_rate, duration);
    } else {
-      if (!submit_only && !descriptor_only && !misc_only && start_no < ARRAY_SIZE(cases_draw)) {
+      if (!submit_only && !descriptor_only && !misc_only && start_no < (int)ARRAY_SIZE(cases_draw)) {
          base_rate = perf_run(0, 0, duration);
          unsigned start = start_no == -1 ? 1 : start_no;
          for (unsigned i = start; i < ARRAY_SIZE(cases_draw); i++)
@@ -2715,7 +2715,7 @@ main(int argc, char *argv[])
          if (start != 1)
             return 0;
       }
-      if (!draw_only && !descriptor_only && !misc_only && start_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
+      if (!draw_only && !descriptor_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))) {
          if (!output_only)
             printf("\t* submit numbers are reported as operations per second\n"
                    "\t* percentages for submit cases are relative to 'submit_noop'\n");
@@ -2731,7 +2731,7 @@ main(int argc, char *argv[])
          if (start != 1)
             return 0;
       }
-      if (!draw_only && !submit_only && !misc_only && start_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)) {
+      if (!draw_only && !submit_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))) {
          if (!output_only)
             printf("\t* descriptor numbers are reported as thousands of operations per second\n"
                    "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
