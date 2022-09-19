@@ -2542,6 +2542,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
          desc_layout = create_descriptor_layout(&binding, 1, true, false, NULL);
          *push_layout = create_pipeline_layout(&desc_layout, 1);
          tci.descriptorSetLayout = desc_layout;
+         tci.pipelineLayout = *push_layout;
          tci.templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR;
          VkResult result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, push_template);
          VK_CHECK("CreateDescriptorUpdateTemplate", result);
