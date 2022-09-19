@@ -2690,7 +2690,7 @@ main(int argc, char *argv[])
    next_cmdbuf();
    if (!output_only)
       printf("vkoverhead running:\n");
-   if (!submit_only && !descriptor_only && !misc_only && start_no < (int)ARRAY_SIZE(cases_draw))
+   if (!submit_only && !descriptor_only && !misc_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw))
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
    double base_rate = 0;
