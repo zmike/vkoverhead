@@ -580,7 +580,7 @@ static void
 draw_multirt(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt, iterations, 1);
-   render_pass = render_pass_dontcare;
+   render_pass = render_pass_multirt_dontcare;
    begin_rp();
    for (unsigned i = 0; i < iterations; i++, count++)
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
