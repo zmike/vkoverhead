@@ -2588,7 +2588,8 @@ main(int argc, char *argv[])
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, ibo, max_images);
 
    create_basic_pipelines(render_pass_clear, layout_basic, pipelines_basic);
-   create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
+   if (check_dynamic_rendering())
+      create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
    create_vattrib_pipelines(render_pass_clear, layout_basic, pipelines_vattrib);
    if (check_dynamic_vertex_input())
       pipeline_vattrib_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
