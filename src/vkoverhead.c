@@ -77,6 +77,8 @@ static VkPipelineLayout layout_ssbo;
 static VkPipelineLayout layout_ssbo_many;
 static VkPipelineLayout layout_combined_sampler;
 static VkPipelineLayout layout_combined_sampler_many;
+static VkPipelineLayout layout_sampled_image;
+static VkPipelineLayout layout_sampled_image_many;
 static VkPipelineLayout layout_tbo;
 static VkPipelineLayout layout_tbo_many;
 static VkPipelineLayout layout_ibo;
@@ -89,6 +91,8 @@ static VkPipelineLayout layout_ssbo_push;
 static VkPipelineLayout layout_ssbo_many_push;
 static VkPipelineLayout layout_combined_sampler_push;
 static VkPipelineLayout layout_combined_sampler_many_push;
+static VkPipelineLayout layout_sampled_image_push;
+static VkPipelineLayout layout_sampled_image_many_push;
 static VkPipelineLayout layout_tbo_push;
 static VkPipelineLayout layout_tbo_many_push;
 static VkPipelineLayout layout_ibo_push;
@@ -101,6 +105,8 @@ static VkDescriptorUpdateTemplateKHR template_ssbo;
 static VkDescriptorUpdateTemplateKHR template_ssbo_many;
 static VkDescriptorUpdateTemplateKHR template_combined_sampler;
 static VkDescriptorUpdateTemplateKHR template_combined_sampler_many;
+static VkDescriptorUpdateTemplateKHR template_sampled_image;
+static VkDescriptorUpdateTemplateKHR template_sampled_image_many;
 static VkDescriptorUpdateTemplateKHR template_tbo;
 static VkDescriptorUpdateTemplateKHR template_tbo_many;
 static VkDescriptorUpdateTemplateKHR template_ibo;
@@ -113,6 +119,8 @@ static VkDescriptorUpdateTemplateKHR template_ssbo_push;
 static VkDescriptorUpdateTemplateKHR template_ssbo_many_push;
 static VkDescriptorUpdateTemplateKHR template_combined_sampler_push;
 static VkDescriptorUpdateTemplateKHR template_combined_sampler_many_push;
+static VkDescriptorUpdateTemplateKHR template_sampled_image_push;
+static VkDescriptorUpdateTemplateKHR template_sampled_image_many_push;
 static VkDescriptorUpdateTemplateKHR template_tbo_push;
 static VkDescriptorUpdateTemplateKHR template_tbo_many_push;
 static VkDescriptorUpdateTemplateKHR template_ibo_push;
@@ -146,6 +154,8 @@ static VkDescriptorSet desc_set_ssbo[2];
 static VkDescriptorSet desc_set_ssbo_many[2];
 static VkDescriptorSet desc_set_combined_sampler[2];
 static VkDescriptorSet desc_set_combined_sampler_many[2];
+static VkDescriptorSet desc_set_sampled_image[2];
+static VkDescriptorSet desc_set_sampled_image_many[2];
 static VkDescriptorSet desc_set_image[2];
 static VkDescriptorSet desc_set_image_many[2];
 static VkDescriptorSet desc_set_tbo[2];
@@ -159,6 +169,8 @@ static VkDescriptorSet desc_set_ssbo_mutable[2];
 static VkDescriptorSet desc_set_ssbo_many_mutable[2];
 static VkDescriptorSet desc_set_combined_sampler_mutable[2];
 static VkDescriptorSet desc_set_combined_sampler_many_mutable[2];
+static VkDescriptorSet desc_set_sampled_image_mutable[2];
+static VkDescriptorSet desc_set_sampled_image_many_mutable[2];
 static VkDescriptorSet desc_set_image_mutable[2];
 static VkDescriptorSet desc_set_image_many_mutable[2];
 static VkDescriptorSet desc_set_tbo_mutable[2];
@@ -1099,6 +1111,34 @@ descriptor_16combined_sampler(unsigned iterations)
 }
 
 static void
+descriptor_1sampled_image(unsigned iterations)
+{
+   VkWriteDescriptorSet wds = {0};
+   wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+   wds.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+   wds.descriptorCount = 1;
+   wds.dstSet = desc_set_sampled_image[0];
+   for (unsigned i = 0; i < iterations; i++) {
+      wds.pImageInfo = dii[i & 1];
+      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+   }
+}
+
+static void
+descriptor_16sampled_image(unsigned iterations)
+{
+   VkWriteDescriptorSet wds = {0};
+   wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+   wds.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+   wds.descriptorCount = MAX_SAMPLERS;
+   wds.dstSet = desc_set_sampled_image_many[0];
+   for (unsigned i = 0; i < iterations; i++) {
+      wds.pImageInfo = dii[i & 1];
+      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+   }
+}
+
+static void
 descriptor_1image(unsigned iterations)
 {
    VkWriteDescriptorSet wds = {0};
@@ -1197,6 +1237,8 @@ TEMPLATE_DESCRIPTOR_CASE(1ssbo, ssbo, dbi_storage)
 TEMPLATE_DESCRIPTOR_CASE(8ssbo, ssbo_many, dbi_storage)
 TEMPLATE_DESCRIPTOR_CASE(1combined_sampler, combined_sampler, dii)
 TEMPLATE_DESCRIPTOR_CASE(16combined_sampler, combined_sampler_many, dii)
+TEMPLATE_DESCRIPTOR_CASE(1sampled_image, sampled_image, dii)
+TEMPLATE_DESCRIPTOR_CASE(16sampled_image, sampled_image_many, dii)
 TEMPLATE_DESCRIPTOR_CASE(1image, image, dii_storage)
 TEMPLATE_DESCRIPTOR_CASE(16image, image_many, dii_storage)
 TEMPLATE_DESCRIPTOR_CASE(1texelbuffer, tbo, tbo_views)
@@ -1222,6 +1264,8 @@ PUSH_DESCRIPTOR_CASE(1ssbo, ssbo, dbi_storage)
 PUSH_DESCRIPTOR_CASE(8ssbo, ssbo_many, dbi_storage)
 PUSH_DESCRIPTOR_CASE(1combined_sampler, combined_sampler, dii)
 PUSH_DESCRIPTOR_CASE(16combined_sampler, combined_sampler_many, dii)
+PUSH_DESCRIPTOR_CASE(1sampled_image, sampled_image, dii)
+PUSH_DESCRIPTOR_CASE(16sampled_image, sampled_image_many, dii)
 PUSH_DESCRIPTOR_CASE(1image, image, dii_storage)
 PUSH_DESCRIPTOR_CASE(16image, image_many, dii_storage)
 PUSH_DESCRIPTOR_CASE(1texelbuffer, tbo, tbo_views)
@@ -1303,6 +1347,32 @@ descriptor_copy_16combined_sampler(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_combined_sampler_many[0];
    cds.srcSet = desc_set_combined_sampler_many[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_1sampled_image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_sampled_image[0];
+   cds.srcSet = desc_set_sampled_image[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_16sampled_image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SAMPLERS;
+   cds.dstSet = desc_set_sampled_image_many[0];
+   cds.srcSet = desc_set_sampled_image_many[1];
    for (unsigned i = 0; i < iterations; i++) {
       VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
    }
@@ -1459,6 +1529,32 @@ descriptor_copy_mutable_16combined_sampler(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_combined_sampler_many_mutable[0];
    cds.srcSet = desc_set_combined_sampler_many_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_1sampled_image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = 1;
+   cds.dstSet = desc_set_sampled_image_mutable[0];
+   cds.srcSet = desc_set_sampled_image_mutable[1];
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+   }
+}
+
+static void
+descriptor_copy_mutable_16sampled_image(unsigned iterations)
+{
+   VkCopyDescriptorSet cds = {0};
+   cds.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+   cds.descriptorCount = MAX_SAMPLERS;
+   cds.dstSet = desc_set_sampled_image_many_mutable[0];
+   cds.srcSet = desc_set_sampled_image_many_mutable[1];
    for (unsigned i = 0; i < iterations; i++) {
       VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
    }
@@ -1871,6 +1967,12 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_16combined_sampler),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16combined_sampler),
    CASE_DESCRIPTOR_PUSH(descriptor_template_16combined_sampler_push),
+   CASE_DESCRIPTOR(descriptor_1sampled_image),
+   CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1sampled_image),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_1sampled_image_push),
+   CASE_DESCRIPTOR(descriptor_16sampled_image),
+   CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16sampled_image),
+   CASE_DESCRIPTOR_PUSH(descriptor_template_16sampled_image_push),
    CASE_DESCRIPTOR(descriptor_1texelbuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_1texelbuffer),
    CASE_DESCRIPTOR_PUSH(descriptor_template_1texelbuffer_push),
@@ -1899,6 +2001,8 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_copy_12ubo),
    CASE_DESCRIPTOR(descriptor_copy_1combined_sampler),
    CASE_DESCRIPTOR(descriptor_copy_16combined_sampler),
+   CASE_DESCRIPTOR(descriptor_copy_1sampled_image),
+   CASE_DESCRIPTOR(descriptor_copy_16sampled_image),
    CASE_DESCRIPTOR(descriptor_copy_1texelbuffer),
    CASE_DESCRIPTOR(descriptor_copy_16texelbuffer),
    CASE_DESCRIPTOR(descriptor_copy_1ssbo),
@@ -1911,6 +2015,8 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_copy_mutable_12ubo, check_mutable_descriptor),
    CASE_DESCRIPTOR(descriptor_copy_mutable_1combined_sampler, check_mutable_descriptor),
    CASE_DESCRIPTOR(descriptor_copy_mutable_16combined_sampler, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_1sampled_image, check_mutable_descriptor),
+   CASE_DESCRIPTOR(descriptor_copy_mutable_16sampled_image, check_mutable_descriptor),
    CASE_DESCRIPTOR(descriptor_copy_mutable_1texelbuffer, check_mutable_descriptor),
    CASE_DESCRIPTOR(descriptor_copy_mutable_16texelbuffer, check_mutable_descriptor),
    CASE_DESCRIPTOR(descriptor_copy_mutable_1ssbo, check_mutable_descriptor),
@@ -2583,6 +2689,7 @@ main(int argc, char *argv[])
 
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ssbo, MAX_SSBOS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combined_sampler, MAX_SAMPLERS);
+   INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sampled_image, MAX_SAMPLERS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, image, max_images);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, tbo, MAX_SAMPLERS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, ibo, max_images);
