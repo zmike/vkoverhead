@@ -2033,7 +2033,7 @@ only_submit:
       dbi[0][i].range = VK_WHOLE_SIZE;
       dbi[1][i].range = VK_WHOLE_SIZE;
       dbi[0][i].buffer = ubo[i];
-      dbi[1][MAX_UBOS - i].buffer = ubo[i];
+      dbi[1][MAX_UBOS - 1 - i].buffer = ubo[i];
    }
 
    VkWriteDescriptorSet wds = {0};
@@ -2058,7 +2058,7 @@ only_submit:
       dbi_storage[0][i].range = VK_WHOLE_SIZE;
       dbi_storage[1][i].range = VK_WHOLE_SIZE;
       dbi_storage[0][i].buffer = ssbo[i];
-      dbi_storage[1][MAX_SSBOS - i].buffer = ssbo[i];
+      dbi_storage[1][MAX_SSBOS - 1 - i].buffer = ssbo[i];
    }
    for (unsigned i = 0; i < MAX_SAMPLERS; i++) {
       dii[1][i].sampler = dii[0][i].sampler = sampler;
