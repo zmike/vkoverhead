@@ -2856,7 +2856,7 @@ main(int argc, char *argv[])
             printf("\t* misc numbers are reported as thousands of operations per second\n"
                    "\t* percentages for misc cases should be ignored\n");
          base_rate = 0;
-         unsigned start = start_no == -1 ? 0 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)));
+         unsigned start = start_no == -1 ? 1 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)));
          for (unsigned i = start; i < ARRAY_SIZE(cases_misc); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + i, base_rate, duration);
          if (start != 0)
