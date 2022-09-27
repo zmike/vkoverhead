@@ -43,9 +43,8 @@ create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bi
    fci.pBindingFlags = flags;
    dcslci.bindingCount = num_bindings;
    dcslci.pBindings = bindings;
-   VkDescriptorSetLayoutSupport supp;
+   VkDescriptorSetLayoutSupport supp = {0};
    supp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_SUPPORT;
-   supp.pNext = pNext;
    supp.supported = VK_FALSE;
    VK(GetDescriptorSetLayoutSupport)(dev->dev, &dcslci, &supp);
    if (supp.supported == VK_FALSE) {
