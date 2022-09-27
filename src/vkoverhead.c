@@ -2822,7 +2822,7 @@ main(int argc, char *argv[])
          for (unsigned i = start; i < ARRAY_SIZE(cases_draw); i++)
             perf_run(i, base_rate, duration);
          if (start != 1)
-            return 0;
+            start_no = -1;
       }
       if (!draw_only && !descriptor_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))) {
          if (!output_only)
@@ -2838,7 +2838,7 @@ main(int argc, char *argv[])
             VK_CHECK("QueueWaitIdle", result);
          }
          if (start != 1)
-            return 0;
+            start_no = -1;
       }
       if (!draw_only && !submit_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))) {
          if (!output_only)
@@ -2849,7 +2849,7 @@ main(int argc, char *argv[])
          for (unsigned i = start; i < ARRAY_SIZE(cases_descriptor); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + i, base_rate, duration);
          if (start != 1)
-            return 0;
+            start_no = -1;
       }
       if (!draw_only && !submit_only && !descriptor_only) {
          if (!output_only)
@@ -2860,7 +2860,7 @@ main(int argc, char *argv[])
          for (unsigned i = start; i < ARRAY_SIZE(cases_misc); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + i, base_rate, duration);
          if (start != 0)
-            return 0;
+            start_no = -1;
       }
    }
 
