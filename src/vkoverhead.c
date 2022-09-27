@@ -2836,6 +2836,9 @@ main(int argc, char *argv[])
             /* avoid clobbering in-use resources */
             result = VK(QueueWaitIdle)(dev->queue);
             VK_CHECK("QueueWaitIdle", result);
+            next_cmdbuf();
+            while (cmdbuf_idx || cmdbuf_pool_idx)
+               next_cmdbuf();
          }
          if (start != 1)
             start_no = -1;
