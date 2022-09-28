@@ -141,7 +141,7 @@ create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModul
 
    VkPipelineShaderStageCreateInfo shader_stages[5] = {0};
    unsigned module_count = 0;
-   for (int i = 0; i < 5; ++i) {
+   for (int i = 0; modules && i < 5; ++i) {
       if (!modules[i])
          continue;
       shader_stages[module_count].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -500,14 +500,6 @@ create_gpl_basic_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
 VkPipeline
 create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineVertexInputStateCreateInfo *vertex_input_state)
 {
-   VkShaderModule modules[5] = {
-      create_shader_module(vattrib_vert_spirv, vattrib_vert_spirv_len),
-      VK_NULL_HANDLE,
-      VK_NULL_HANDLE,
-      VK_NULL_HANDLE,
-      create_shader_module(basic_frag_spirv, basic_frag_spirv_len),
-   };
-
    VkVertexInputBindingDescription *vattrs = (void*)vertex_input_state->pVertexBindingDescriptions;
    VkVertexInputAttributeDescription *vbindings = (void*)vertex_input_state->pVertexAttributeDescriptions;
    generate_vattribs(vattrs, vbindings, 16);
@@ -518,5 +510,5 @@ create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPi
       VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT
    };
 
-   return create_pipeline(layout, render_pass, modules, vertex_input_state, 1, false, &gplci);
+   return create_pipeline(layout, render_pass, NULL, vertex_input_state, 1, false, &gplci);
 }
