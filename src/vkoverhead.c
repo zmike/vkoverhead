@@ -2797,7 +2797,7 @@ main(int argc, char *argv[])
    }
    next_cmdbuf();
    if (!output_only)
-      printf("vkoverhead running:\n");
+      printf("vkoverhead running on %s:\n", dev->info.props.deviceName);
    if (!submit_only && !descriptor_only && !misc_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw))
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
