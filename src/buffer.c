@@ -85,8 +85,7 @@ create_vertex_buffer(void)
 VkBuffer
 create_uniform_buffer(void)
 {
-   float vec4[4];
-   VkBuffer buffer = create_buffer_bind(sizeof(vec4) * 2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
+   VkBuffer buffer = create_buffer_bind(BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
    return buffer;
 }
 
@@ -101,24 +100,21 @@ create_index_buffer(void)
 VkBuffer
 create_texel_buffer(void)
 {
-   float vec4[4];
-   VkBuffer buffer = create_buffer_bind(sizeof(vec4), VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
+   VkBuffer buffer = create_buffer_bind(BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
    return buffer;
 }
 
 VkBuffer
 create_image_buffer(void)
 {
-   float vec4[4];
-   VkBuffer buffer = create_buffer_bind(sizeof(vec4), VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
+   VkBuffer buffer = create_buffer_bind(BUFFER_SIZE, VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
    return buffer;
 }
 
 VkBuffer
 create_storage_buffer(void)
 {
-   float vec4[4];
-   VkBuffer buffer = create_buffer_bind(sizeof(vec4) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
+   VkBuffer buffer = create_buffer_bind(BUFFER_SIZE, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
    return buffer;
 }
 
