@@ -225,6 +225,55 @@ static bool output_only = false;
 
 static util_queue_execute_func cleanup_func = NULL;
 
+
+static bool
+check_multi_draw(void)
+{
+   return dev->info.have_EXT_multi_draw;
+}
+
+static bool
+check_dynamic_vertex_input(void)
+{
+   return dev->info.have_EXT_vertex_input_dynamic_state;
+}
+
+static bool
+check_graphics_pipeline_library(void)
+{
+   return dev->info.have_EXT_graphics_pipeline_library;
+}
+
+static bool
+check_dynamic_rendering(void)
+{
+   return dev->info.have_KHR_dynamic_rendering;
+}
+
+static bool
+check_descriptor_template(void)
+{
+   return dev->info.have_KHR_descriptor_update_template;
+}
+
+static bool
+check_push_descriptor(void)
+{
+   return dev->info.have_KHR_push_descriptor && check_descriptor_template();
+}
+
+static bool
+check_mutable_descriptor(void)
+{
+   return dev->info.have_EXT_mutable_descriptor_type;
+}
+
+static bool
+check_descriptor_buffer(void)
+{
+   return dev->info.have_EXT_descriptor_buffer;
+}
+
 static void
 reset_gpl(void *data, void *gdata, int thread_idx)
 {
@@ -433,54 +482,6 @@ filter_overflow(perf_rate_func func, unsigned iterations, unsigned divisor)
       iterations -= remain;
    }
    return iterations;
-}
-
-static bool
-check_multi_draw(void)
-{
-   return dev->info.have_EXT_multi_draw;
-}
-
-static bool
-check_dynamic_vertex_input(void)
-{
-   return dev->info.have_EXT_vertex_input_dynamic_state;
-}
-
-static bool
-check_graphics_pipeline_library(void)
-{
-   return dev->info.have_EXT_graphics_pipeline_library;
-}
-
-static bool
-check_dynamic_rendering(void)
-{
-   return dev->info.have_KHR_dynamic_rendering;
-}
-
-static bool
-check_descriptor_template(void)
-{
-   return dev->info.have_KHR_descriptor_update_template;
-}
-
-static bool
-check_push_descriptor(void)
-{
-   return dev->info.have_KHR_push_descriptor && check_descriptor_template();
-}
-
-static bool
-check_mutable_descriptor(void)
-{
-   return dev->info.have_EXT_mutable_descriptor_type;
-}
-
-static bool
-check_descriptor_buffer(void)
-{
-   return dev->info.have_EXT_descriptor_buffer;
 }
 
 static void
