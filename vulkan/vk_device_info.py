@@ -115,6 +115,8 @@ EXTENSIONS = [
        conditions=["$props.fullyCoveredFragmentShaderInputVariable"]),
     Extension("VK_KHR_shader_draw_parameters"),
     Extension("VK_KHR_sampler_mirror_clamp_to_edge"),
+    Extension("VK_KHR_buffer_device_address", alias="bda", features=True),
+    Extension("VK_EXT_descriptor_buffer", alias="db", features=True, properties=True),
     Extension("VK_EXT_conditional_rendering",
         alias="cond_render", 
         features=True, 

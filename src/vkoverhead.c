@@ -183,6 +183,10 @@ static VkBuffer ssbo[MAX_SSBOS];
 static VkBuffer tbo[MAX_SAMPLERS];
 static VkBuffer ibo[MAX_IMAGES];
 static VkBuffer index_bo[2];
+static VkDeviceAddress ubo_bda[MAX_UBOS];
+static VkDeviceAddress ssbo_bda[MAX_SSBOS];
+static VkDeviceAddress tbo_bda[MAX_SAMPLERS];
+static VkDeviceAddress ibo_bda[MAX_IMAGES];
 static VkImageView tex[MAX_SAMPLERS];
 static VkImageView img[MAX_IMAGES];
 static VkSampler sampler;
@@ -190,6 +194,10 @@ static VkBufferView tbo_views[2][MAX_SAMPLERS];
 static VkBufferView ibo_views[2][MAX_SAMPLERS];
 static VkDescriptorBufferInfo dbi[2][MAX_UBOS] = {0};
 static VkDescriptorBufferInfo dbi_storage[2][MAX_SSBOS] = {0};
+static VkDescriptorAddressInfoEXT dai[2][MAX_UBOS] = {0};
+static VkDescriptorAddressInfoEXT dai_storage[2][MAX_SSBOS] = {0};
+static VkDescriptorAddressInfoEXT dai_tbo[2][MAX_SAMPLERS] = {0};
+static VkDescriptorAddressInfoEXT dai_ibo[2][MAX_IMAGES] = {0};
 static VkDescriptorImageInfo dii[2][MAX_SAMPLERS] = {0};
 static VkDescriptorImageInfo dii_storage[2][MAX_IMAGES] = {0};
 static VkImage copy_image_src[2]; //normal, mutable
@@ -467,6 +475,12 @@ static bool
 check_mutable_descriptor(void)
 {
    return dev->info.have_EXT_mutable_descriptor_type;
+}
+
+static bool
+check_descriptor_buffer(void)
+{
+   return dev->info.have_EXT_descriptor_buffer;
 }
 
 static void
@@ -1273,6 +1287,57 @@ PUSH_DESCRIPTOR_CASE(16texelbuffer, tbo_many, tbo_views)
 PUSH_DESCRIPTOR_CASE(1imagebuffer, ibo, ibo_views)
 PUSH_DESCRIPTOR_CASE(16imagebuffer, ibo_many, ibo_views)
 
+#define DESCRIPTOR_BUFFER_CASE(NAME, DATA, SIZE, TYPE) \
+static void \
+descriptor_buffer_offset_##NAME(unsigned iterations) \
+{ \
+   VkDescriptorGetInfoEXT info = {0}; \
+   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT; \
+   info.type = TYPE; \
+   /* this should be more than big enough for any single descriptor */ \
+   char buf[1024]; \
+   for (unsigned i = 0; i < iterations; i++) { \
+      /* this is a union of pointers, so the type is irrelevant */ \
+      info.data.pSampler = (void*)&DATA[0][i & 1]; \
+      VK(GetDescriptorEXT)(dev->dev, &info, dev->info.db_props.SIZE, buf); \
+   } \
+}
+
+DESCRIPTOR_BUFFER_CASE(ubo, dai, uniformBufferDescriptorSize, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+DESCRIPTOR_BUFFER_CASE(ssbo, dai_storage, storageBufferDescriptorSize, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+DESCRIPTOR_BUFFER_CASE(sampled_image, dii, sampledImageDescriptorSize, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+DESCRIPTOR_BUFFER_CASE(image, dii_storage, storageImageDescriptorSize, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+DESCRIPTOR_BUFFER_CASE(texelbuffer, dai_tbo, uniformTexelBufferDescriptorSize, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER)
+DESCRIPTOR_BUFFER_CASE(imagebuffer, dai_ibo, storageTexelBufferDescriptorSize, VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER)
+
+static void
+descriptor_buffer_offset_combined_sampler(unsigned iterations)
+{
+   size_t combinedSize = dev->info.db_props.combinedImageSamplerDescriptorSize;
+   VkDescriptorGetInfoEXT info = {0};
+   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT;
+   info.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+   char buf[1024]; //this should be more than big enough for any single descriptor
+   if (dev->info.db_props.combinedImageSamplerDescriptorSingleArray) {
+      for (unsigned i = 0; i < iterations; i++) {
+         /* this is a union of pointers, so the type is irrelevant */
+         info.data.pSampler = (void*)&dii[0][i & 1];
+         VK(GetDescriptorEXT)(dev->dev, &info, combinedSize, buf);
+      }
+   } else {
+      /* hope you like reduced perf! */
+      char buf2[1024];
+      for (unsigned i = 0; i < iterations; i++) {
+         /* this is a union of pointers, so the type is irrelevant */
+         info.data.pSampler = (void*)&dii[0][i & 1];
+         VK(GetDescriptorEXT)(dev->dev, &info, combinedSize, buf2);
+         memcpy(buf, buf2, dev->info.db_props.samplerDescriptorSize);
+         memcpy(&buf[dev->info.db_props.samplerDescriptorSize],
+                &buf2[dev->info.db_props.samplerDescriptorSize],
+                dev->info.db_props.sampledImageDescriptorSize);
+      }
+   }
+}
 
 static void
 descriptor_copy_1ubo(unsigned iterations)
@@ -1952,6 +2017,7 @@ static struct perf_case cases_submit[] = {
 #define CASE_DESCRIPTOR(name, ...) {#name, name, pipelines_basic, __VA_ARGS__}
 #define CASE_DESCRIPTOR_TEMPLATE(name) {#name, name, pipelines_basic, check_descriptor_template}
 #define CASE_DESCRIPTOR_PUSH(name) {#name, name, pipelines_basic, check_push_descriptor}
+#define CASE_DESCRIPTOR_BUFFER(name) {#name, name, pipelines_basic, check_descriptor_buffer}
 
 static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_noop),
@@ -1997,6 +2063,13 @@ static struct perf_case cases_descriptor[] = {
    CASE_DESCRIPTOR(descriptor_16imagebuffer),
    CASE_DESCRIPTOR_TEMPLATE(descriptor_template_16imagebuffer),
    CASE_DESCRIPTOR_PUSH(descriptor_template_16imagebuffer_push),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_ubo),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_combined_sampler),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_sampled_image),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_texelbuffer),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_ssbo),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_image),
+   CASE_DESCRIPTOR_BUFFER(descriptor_buffer_offset_imagebuffer),
    CASE_DESCRIPTOR(descriptor_copy_1ubo),
    CASE_DESCRIPTOR(descriptor_copy_12ubo),
    CASE_DESCRIPTOR(descriptor_copy_1combined_sampler),
@@ -2080,6 +2153,17 @@ setup_image(VkImage image, VkImageLayout final_layout)
    set_image_layout(image, final_layout);
 }
 
+static VkDeviceAddress
+get_bda(VkBuffer b)
+{
+   VkBufferDeviceAddressInfo info = {
+      VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+      NULL,
+      b
+   };
+   return VK(GetBufferDeviceAddress)(dev->dev, &info);
+}
+
 static void
 setup(void)
 {
@@ -2140,6 +2224,15 @@ only_submit:
       dbi[1][i].range = VK_WHOLE_SIZE;
       dbi[0][i].buffer = ubo[i];
       dbi[1][MAX_UBOS - 1 - i].buffer = ubo[i];
+      if (dev->info.have_KHR_buffer_device_address) {
+         ubo_bda[i] = get_bda(ubo[i]);
+         for (unsigned j = 0; j < ARRAY_SIZE(dai); j++) {
+            dai[j][i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT;
+            dai[j][i].range = BUFFER_SIZE;
+         }
+         dai[0][i].address = ubo_bda[i];
+         dai[1][MAX_UBOS - 1 - i].address = ubo_bda[i];
+      }
    }
 
    VkWriteDescriptorSet wds = {0};
@@ -2165,17 +2258,46 @@ only_submit:
       dbi_storage[1][i].range = VK_WHOLE_SIZE;
       dbi_storage[0][i].buffer = ssbo[i];
       dbi_storage[1][MAX_SSBOS - 1 - i].buffer = ssbo[i];
+      if (dev->info.have_KHR_buffer_device_address) {
+         ssbo_bda[i] = get_bda(ssbo[i]);
+         for (unsigned j = 0; j < ARRAY_SIZE(dai_storage); j++) {
+            dai_storage[j][i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT;
+            dai_storage[j][i].range = BUFFER_SIZE;
+         }
+         dai_storage[0][i].address = ssbo_bda[i];
+         dai_storage[1][MAX_SSBOS - 1 - i].address = ssbo_bda[i];
+      }
    }
    for (unsigned i = 0; i < MAX_SAMPLERS; i++) {
       dii[1][i].sampler = dii[0][i].sampler = sampler;
       dii[1][MAX_SAMPLERS - 1 - i].imageView = dii[0][i].imageView = tex[i];
       dii[1][i].imageLayout = dii[0][i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       tbo_views[1][MAX_SAMPLERS - 1 - i] = tbo_views[0][i] = create_bufferview(tbo[i]);
+      if (dev->info.have_KHR_buffer_device_address) {
+         tbo_bda[i] = get_bda(tbo[i]);
+         for (unsigned j = 0; j < ARRAY_SIZE(dai_tbo); j++) {
+            dai_tbo[j][i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT;
+            dai_tbo[j][i].range = BUFFER_SIZE;
+            dai_tbo[j][i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+         }
+         dai_tbo[0][i].address = tbo_bda[i];
+         dai_tbo[1][MAX_SAMPLERS - 1 - i].address = tbo_bda[i];
+      }
    }
    for (unsigned i = 0; i < MAX_IMAGES; i++) {
       dii_storage[1][MAX_IMAGES - 1 - i].imageView = dii_storage[0][i].imageView = img[i];
       dii_storage[1][i].imageLayout = dii_storage[0][i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
       ibo_views[1][MAX_IMAGES - 1 - i] = ibo_views[0][i] = create_bufferview(ibo[i]);
+      if (dev->info.have_KHR_buffer_device_address) {
+         ibo_bda[i] = get_bda(ibo[i]);
+         for (unsigned j = 0; j < ARRAY_SIZE(dai_ibo); j++) {
+            dai_ibo[j][i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT;
+            dai_ibo[j][i].range = BUFFER_SIZE;
+            dai_ibo[j][i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+         }
+         dai_ibo[0][i].address = ibo_bda[i];
+         dai_ibo[1][MAX_IMAGES - 1 - i].address = ibo_bda[i];
+      }
    }
 
    wds.descriptorCount = MAX_UBOS;
