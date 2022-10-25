@@ -25,12 +25,25 @@
 #include "vkoverhead.h"
 
 static VkDeviceMemory
-create_memory(VkDeviceSize size, unsigned alignment, bool host)
+create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bool host)
 {
    VkMemoryAllocateInfo mai = {0};
    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
    mai.allocationSize = size;
    mai.memoryTypeIndex = host ? dev->host_mem_idx : dev->vram_mem_idx;
+   if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
+      VkMemoryPropertyFlags domains = host ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+      for (unsigned i = 0; i < dev->info.mem_props.memoryTypeCount; i++) {
+         if ((dev->info.mem_props.memoryTypes[i].propertyFlags & domains) == domains && BITFIELD_BIT(i) & memoryTypeBits) {
+            mai.memoryTypeIndex = i;
+            break;
+         }
+      }
+   }
+   if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
+      fprintf(stderr, "Could not successfully allocate described memory type\n");
+      abort();
+   }
    if (host) {
       alignment = MAX2(alignment, dev->info.props.limits.minMemoryMapAlignment);
       mai.allocationSize = align64(mai.allocationSize, dev->info.props.limits.minMemoryMapAlignment);
@@ -67,7 +80,7 @@ create_buffer_bind(VkDeviceSize size, VkBufferUsageFlags usage, bool host)
       alignment = MAX2(reqs.alignment, dev->info.props.limits.minMemoryMapAlignment);
    else
       alignment = MAX2(reqs.alignment, 256);
-   VkDeviceMemory mem = create_memory(reqs.size, alignment, host);
+   VkDeviceMemory mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, host);
    VkResult result = VK(BindBufferMemory)(dev->dev, buffer, mem, 0);
    VK_CHECK("BindBufferMemory", result);
    return buffer;
@@ -163,7 +176,7 @@ create_image_bind(VkImageUsageFlags usage, VkSampleCountFlags samples, bool muta
    VkMemoryRequirements reqs = {0};
    VK(GetImageMemoryRequirements)(dev->dev, image, &reqs);
    unsigned alignment = MAX2(reqs.alignment, 256);
-   VkDeviceMemory mem = create_memory(reqs.size, alignment, false);
+   VkDeviceMemory mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, false);
    VkResult result = VK(BindImageMemory)(dev->dev, image, mem, 0);
    VK_CHECK("BindImageMemory", result);
    return image;
