@@ -131,6 +131,14 @@ create_storage_buffer(void)
    return buffer;
 }
 
+VkBuffer
+create_descriptor_buffer(void)
+{
+   VkBufferUsageFlags usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
+   VkBuffer buffer = create_buffer_bind(DESCRIPTOR_BUFFER_SIZE, usage, true);
+   return buffer;
+}
+
 VkBufferView
 create_bufferview(VkBuffer buffer)
 {

@@ -25,7 +25,7 @@
 #include "vkoverhead.h"
 
 VkDescriptorSetLayout
-create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, void *pNext)
+create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, bool buffer, void *pNext)
 {
    VkDescriptorSetLayout desc_layout;
    VkDescriptorSetLayoutCreateInfo dcslci = {0};
@@ -35,6 +35,8 @@ create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bi
       dcslci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
    if (host)
       dcslci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_HOST_ONLY_POOL_BIT_EXT;
+   if (buffer)
+      dcslci.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
    VkDescriptorSetLayoutBindingFlagsCreateInfo fci = {0};
    VkDescriptorBindingFlags flags[128] = {0};
    dcslci.pNext = &fci;

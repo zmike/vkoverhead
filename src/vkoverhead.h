@@ -37,7 +37,10 @@ extern struct vk_device *dev;
 
 #define BUFFER_SIZE 32 //size of a buffer-type descriptor in bytes
 
-VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, void *pNext);
+/* this is probably big enough to hold 16 descriptors on any hw */
+#define DESCRIPTOR_BUFFER_SIZE (16 * 256)
+
+VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, bool buffer, void *pNext);
 VkDescriptorSet create_descriptor_set(VkDescriptorSetLayout desc_layout, VkDescriptorPoolSize *size, bool host, void *pNext);
 VkRenderPass create_renderpass(unsigned num_rts, bool clear);
 VkFramebuffer create_framebuffer(unsigned num_rts, VkRenderPass render_pass);
@@ -66,6 +69,7 @@ VkBuffer create_index_buffer(void);
 VkBuffer create_texel_buffer(void);
 VkBuffer create_image_buffer(void);
 VkBuffer create_storage_buffer(void);
+VkBuffer create_descriptor_buffer(void);
 VkBufferView create_bufferview(VkBuffer buffer);
 VkImageView create_rt(VkImage *ret_image, bool mutable);
 VkImageView create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples, bool mutable);

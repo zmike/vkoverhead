@@ -99,6 +99,11 @@ static VkPipelineLayout layout_ibo_push;
 static VkPipelineLayout layout_ibo_many_push;
 static VkPipelineLayout layout_image_push;
 static VkPipelineLayout layout_image_many_push;
+/* fewer test variants for descriptor buffer */
+static VkPipelineLayout layout_ubo_db;
+static VkPipelineLayout layout_ssbo_many_db;
+static VkPipelineLayout layout_combined_sampler_many_db;
+static VkPipelineLayout layout_image_many_db;
 static VkDescriptorUpdateTemplateKHR template_basic;
 static VkDescriptorUpdateTemplateKHR template_ubo;
 static VkDescriptorUpdateTemplateKHR template_ssbo;
@@ -147,6 +152,11 @@ static VkPipeline pipeline_image_many;
 static VkPipeline pipeline_gpl_basic;
 static VkPipeline pipeline_gpl_vert[2];
 static VkPipeline pipeline_gpl_vert_final[2];
+/* descriptor buffer offset binding has fewer tests */
+static VkPipeline pipeline_ubo_db;
+static VkPipeline pipeline_ssbo_many_db;
+static VkPipeline pipeline_combined_sampler_many_db;
+static VkPipeline pipeline_image_many_db;
 static VkPipeline *pipelines; //this one gets used
 static VkDescriptorSet desc_set_basic[2];
 static VkDescriptorSet desc_set_ubo[2];
@@ -203,6 +213,15 @@ static VkDescriptorImageInfo dii_storage[2][MAX_IMAGES] = {0};
 static VkImage copy_image_src[2]; //normal, mutable
 static VkImage copy_image_dst[2]; //normal, mutable
 static VkImage copy_image_ms[2]; //normal, mutable
+/* 2 buffers for alternating */
+static VkBuffer ubo_db[2];
+static VkDeviceAddress ubo_db_bda[2];
+static VkBuffer ssbo_db[2];
+static VkDeviceAddress ssbo_db_bda[2];
+static VkBuffer sampler_db[2];
+static VkDeviceAddress sampler_db_bda[2];
+static VkBuffer image_db[2];
+static VkDeviceAddress image_db_bda[2];
 
 static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
@@ -211,6 +230,7 @@ static uint64_t count = 0;
 static bool is_submit = false;
 static bool is_dynamic = false;
 static bool submit_init = false;
+static bool is_descriptor_buffer = false;
 
 /* cmdline options */
 static double duration = 1.0;
@@ -222,6 +242,8 @@ static bool draw_only = false;
 static bool descriptor_only = false;
 static bool misc_only = false;
 static bool output_only = false;
+
+static VkDeviceAddress descriptor_buffer;
 
 static util_queue_execute_func cleanup_func = NULL;
 
@@ -362,6 +384,14 @@ begin_cmdbuf(void)
          VK(CmdBindVertexBuffers)(cmdbuf, 0, ARRAY_SIZE(vbo), vbo, offsets);
       VK(CmdBindIndexBuffer)(cmdbuf, index_bo[0], 0, VK_INDEX_TYPE_UINT32);
       VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, desc_set_basic, 0, NULL);
+   }
+
+   if (is_descriptor_buffer && check_descriptor_buffer()) {
+      VkDescriptorBufferBindingInfoEXT info = {0};
+      info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
+      info.address = descriptor_buffer;
+      info.usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
+      VK(CmdBindDescriptorBuffersEXT)(cmdbuf, 1, &info);
    }
 
    if (!is_dynamic)
@@ -942,6 +972,58 @@ draw_16imagebuffer_change(unsigned iterations)
    begin_rp();
    for (unsigned i = 0; i < iterations; i++, count++) {
       VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ibo_many, 0, 1, &desc_set_ibo_many[i & 1], 0, NULL);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
+}
+
+static void
+draw_ubo_db_change(unsigned iterations)
+{
+   iterations = filter_overflow(draw_ubo_db_change, iterations, 1);
+   begin_rp();
+   VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
+   uint32_t zero = 0;
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ubo_db, 0, 1, &zero, &offsets[i & 1]);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
+}
+
+static void
+draw_ssbo_db_change(unsigned iterations)
+{
+   iterations = filter_overflow(draw_ssbo_db_change, iterations, 1);
+   begin_rp();
+   VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
+   uint32_t zero = 0;
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo_many_db, 0, 1, &zero, &offsets[i & 1]);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
+}
+
+static void
+draw_combined_sampler_db_change(unsigned iterations)
+{
+   iterations = filter_overflow(draw_combined_sampler_db_change, iterations, 1);
+   begin_rp();
+   VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
+   uint32_t zero = 0;
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler_many_db, 0, 1, &zero, &offsets[i & 1]);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
+}
+
+static void
+draw_image_db_change(unsigned iterations)
+{
+   iterations = filter_overflow(draw_image_db_change, iterations, 1);
+   begin_rp();
+   VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
+   uint32_t zero = 0;
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image_many_db, 0, 1, &zero, &offsets[i & 1]);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
@@ -1965,6 +2047,7 @@ struct perf_case {
 #define CASE_TBO_MANY(name, ...) {#name, name, &pipeline_tbo_many, __VA_ARGS__}
 #define CASE_IBO(name, ...) {#name, name, &pipeline_ibo, __VA_ARGS__}
 #define CASE_IBO_MANY(name, ...) {#name, name, &pipeline_ibo_many, __VA_ARGS__}
+#define CASE_DB(name, pipeline) {#name, name, &pipeline, check_descriptor_buffer}
 
 static struct perf_case cases_draw[] = {
    CASE_BASIC(draw),
@@ -2003,6 +2086,11 @@ static struct perf_case cases_draw[] = {
    CASE_IMAGE_MANY(draw_16image_change),
    CASE_IBO(draw_1imagebuffer_change),
    CASE_IBO_MANY(draw_16imagebuffer_change),
+   CASE_DB(draw_ubo_db_change, pipeline_ubo_db),
+   CASE_DB(draw_ssbo_db_change, pipeline_ssbo_many_db),
+   CASE_DB(draw_combined_sampler_db_change, pipeline_combined_sampler_many_db),
+   CASE_DB(draw_image_db_change, pipeline_image_many_db),
+
 };
 
 #define CASE_SUBMIT(name, ...) {#name, name, pipelines_basic, __VA_ARGS__}
@@ -2528,6 +2616,18 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    is_dynamic = !!strstr(p->name, "dynamic");
    pipelines = p->pipelines;
    bool multirt = !!strstr(p->name, "multirt");
+   unsigned name_len = strlen(p->name);
+   is_descriptor_buffer = !strcmp(&p->name[name_len - 1 - 3], "_db");
+   if (is_descriptor_buffer && !unsupported) {
+      if (strstr(p->name, "ubo"))
+         descriptor_buffer = ubo_db_bda[0];
+      else if (strstr(p->name, "ssbo"))
+         descriptor_buffer = ssbo_db_bda[0];
+      else if (strstr(p->name, "combined_sampler"))
+         descriptor_buffer = sampler_db_bda[0];
+      else if (strstr(p->name, "image"))
+         descriptor_buffer = image_db_bda[0];
+   }
    set_render_info(p, multirt);
    if (is_submit)
       setup_submit();
@@ -2726,7 +2826,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
    binding.descriptorType = descriptorType;
    binding.descriptorCount = descriptorCount;
    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1, false, false, NULL);
+   VkDescriptorSetLayout desc_layout = create_descriptor_layout(&binding, 1, false, false, set_count == 0, NULL);
    VkDescriptorPoolSize size = {0};
    size.type = descriptorType;
    size.descriptorCount = descriptorCount;
@@ -2734,12 +2834,12 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
       sets[i] = create_descriptor_set(desc_layout, &size, false, NULL);
    if (dev->info.have_EXT_mutable_descriptor_type) {
       for (unsigned i = 0; i < set_count; i++) {
-         VkDescriptorSetLayout mutable_desc_layout = create_descriptor_layout(&binding, 1, false, !i, &minfo);
+         VkDescriptorSetLayout mutable_desc_layout = create_descriptor_layout(&binding, 1, false, !i, false, &minfo);
          mutable_sets[i] = create_descriptor_set(mutable_desc_layout, &size, !i, &minfo);
       }
    }
    *layout = create_pipeline_layout(&desc_layout, 1);
-   if (dev->info.have_KHR_descriptor_update_template) {
+   if (dev->info.have_KHR_descriptor_update_template && set_count) {
       tci.descriptorSetLayout = desc_layout;
       tci.pipelineLayout = *layout;
       template_entry.descriptorCount = descriptorCount;
@@ -2768,7 +2868,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
       VK_CHECK("CreateDescriptorUpdateTemplate", result);
 
       if (dev->info.have_KHR_push_descriptor) {
-         desc_layout = create_descriptor_layout(&binding, 1, true, false, NULL);
+         desc_layout = create_descriptor_layout(&binding, 1, true, false, false, NULL);
          *push_layout = create_pipeline_layout(&desc_layout, 1);
          tci.descriptorSetLayout = desc_layout;
          tci.pipelineLayout = *push_layout;
@@ -2907,6 +3007,32 @@ main(int argc, char *argv[])
    begin_cmdbuf();
    setup();
    end_cmdbuf();
+
+   if (check_descriptor_buffer()) {
+      /* descriptor buffer offset binding tests don't actually use the descriptor buffers
+       * if descriptor buffers will ever be accessed by the gpu, this block should also use vkGetDescriptorEXT
+       * to populate the buffers
+       */
+      for (unsigned i = 0; i < 2; i++) {
+         ubo_db[i] = create_descriptor_buffer();
+         ubo_db_bda[i] = get_bda(ubo_db[i]);
+         ssbo_db[i] = create_descriptor_buffer();
+         ssbo_db_bda[i] = get_bda(ssbo_db[i]);
+         sampler_db[i] = create_descriptor_buffer();
+         sampler_db_bda[i] = get_bda(sampler_db[i]);
+         image_db[i] = create_descriptor_buffer();
+         image_db_bda[i] = get_bda(image_db[i]);
+      }
+      init_descriptor_state(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_UBOS, &layout_ubo_db, NULL, NULL, NULL, NULL, NULL, 0);
+      init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SSBOS, &layout_ssbo_many_db, NULL, NULL, NULL, NULL, NULL, 0);
+      init_descriptor_state(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SAMPLERS, &layout_combined_sampler_many_db, NULL, NULL, NULL, NULL, NULL, 0);
+      init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, max_images, &layout_image_many_db, NULL, NULL, NULL, NULL, NULL, 0);
+      pipeline_ubo_db = create_ubo_pipeline(render_pass_clear, layout_ubo_db);
+      pipeline_ssbo_many_db = create_ssbo_many_pipeline(render_pass_clear, layout_ssbo_many_db);
+      pipeline_combined_sampler_many_db = create_sampler_many_pipeline(render_pass_clear, layout_combined_sampler_many_db);
+      pipeline_image_many_db = create_image_many_pipeline(render_pass_clear, layout_image_many_db);
+   }
+
    /* ensure that setup completes before proceeding */
    {
       VkSubmitInfo s = {0};
