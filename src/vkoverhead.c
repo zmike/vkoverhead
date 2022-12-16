@@ -834,7 +834,7 @@ draw_16vattrib_change_gpl_hashncache(unsigned iterations)
       vertex_input_state.pVertexBindingDescriptions = gpl_vbinding[i & 1];
       vertex_input_state.pVertexAttributeDescriptions = gpl_vattr[i & 1];
       struct hash_entry *he = _mesa_hash_table_search(&gpl_pipeline_table, &vertex_input_state);
-      VkPipeline pipeline = he->data;
+      VkPipeline pipeline = (VkPipeline)(uintptr_t)he->data;
       VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
    }
@@ -2962,7 +2962,7 @@ main(int argc, char *argv[])
             VkPipelineVertexInputStateCreateInfo *key = mem_dup(&vertex_input_state, sizeof(VkPipelineVertexInputStateCreateInfo));
             key->pVertexBindingDescriptions = mem_dup(vertex_input_state.pVertexBindingDescriptions, vertex_input_state.vertexBindingDescriptionCount * sizeof(VkVertexInputBindingDescription));
             key->pVertexAttributeDescriptions = mem_dup(vertex_input_state.pVertexAttributeDescriptions, vertex_input_state.vertexAttributeDescriptionCount * sizeof(VkVertexInputAttributeDescription));
-            _mesa_hash_table_insert(&gpl_pipeline_table, key, pipeline_gpl_vert_final[i]);
+            _mesa_hash_table_insert(&gpl_pipeline_table, key, (uintptr_t)pipeline_gpl_vert_final[i]);
          }
       }
    }

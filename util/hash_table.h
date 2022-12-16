@@ -40,7 +40,7 @@ extern "C" {
 struct hash_entry {
    uint32_t hash;
    const void *key;
-   void *data;
+   uint64_t data;
 };
 
 struct hash_table {
@@ -89,10 +89,10 @@ static inline uint32_t _mesa_hash_table_num_entries(struct hash_table *ht)
 }
 
 struct hash_entry *
-_mesa_hash_table_insert(struct hash_table *ht, const void *key, void *data);
+_mesa_hash_table_insert(struct hash_table *ht, const void *key, uint64_t data);
 struct hash_entry *
 _mesa_hash_table_insert_pre_hashed(struct hash_table *ht, uint32_t hash,
-                                   const void *key, void *data);
+                                   const void *key, uint64_t data);
 struct hash_entry *
 _mesa_hash_table_search(struct hash_table *ht, const void *key);
 struct hash_entry *
@@ -154,7 +154,7 @@ _mesa_hash_table_reserve(struct hash_table *ht, unsigned size);
 static inline void
 hash_table_call_foreach(struct hash_table *ht,
                         void (*callback)(const void *key,
-                                         void *data,
+                                         uint64_t data,
                                          void *closure),
                         void *closure)
 {
@@ -167,8 +167,8 @@ hash_table_call_foreach(struct hash_table *ht,
  */
 struct hash_table_u64 {
    struct hash_table *table;
-   void *freed_key_data;
-   void *deleted_key_data;
+   uint64_t freed_key_data;
+   uint64_t deleted_key_data;
 };
 
 struct hash_table_u64 *
@@ -179,9 +179,9 @@ _mesa_hash_table_u64_destroy(struct hash_table_u64 *ht);
 
 void
 _mesa_hash_table_u64_insert(struct hash_table_u64 *ht, uint64_t key,
-                            void *data);
+                            uint64_t data);
 
-void *
+uint64_t
 _mesa_hash_table_u64_search(struct hash_table_u64 *ht, uint64_t key);
 
 void
