@@ -649,4 +649,5 @@ vkoverhead = executable(
   include_directories : [inc_src, inc_vk, inc_util],
   dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, idep_mesautilc11],
   c_args: vk_c_args,
+  install: true,
 )
