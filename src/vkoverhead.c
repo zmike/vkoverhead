@@ -45,9 +45,9 @@ struct pool {
    VkCommandPool cmdpool;
    VkCommandBuffer cmdbufs[MAX_CMDBUFS];
 #if VK_USE_64_BIT_PTR_DEFINES==1
-   int64_t *trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
-#else
    void *trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
+#else
+   uint64_t trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
 #endif
 };
 
@@ -789,11 +789,7 @@ draw_16vattrib_change_gpl(unsigned iterations)
       VK_CHECK("CreateGraphicsPipelines", result);
       VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
-#if VK_USE_64_BIT_PTR_DEFINES==1
-      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (int64_t*)pipeline;
-#else
-      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
-#endif
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = pipeline;
    }
    cleanup_func = NULL;
 }
