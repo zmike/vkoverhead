@@ -33,6 +33,8 @@
 
 struct vk_device *dev;
 
+static unsigned max_rts;
+
 #define MAX_CMDBUFS 50
 #define MAX_CMDBUF_POOLS 3
 #define MAX_DRAWS 10000
@@ -490,7 +492,7 @@ begin_rp(void)
       rpbi.renderArea.extent.width = 100;
       rpbi.renderArea.extent.height = 100;
       rpbi.framebuffer = fb;
-      rpbi.clearValueCount = fb == fb_basic ? 1 : MAX_RTS;
+      rpbi.clearValueCount = fb == fb_basic ? 1 : max_rts;
       VkClearValue clear[MAX_RTS] = {0};
       rpbi.pClearValues = clear;
       VK(CmdBeginRenderPass)(cmdbuf, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
@@ -2885,11 +2887,12 @@ main(int argc, char *argv[])
    parse_args(argc, (const char**)argv);
    util_cpu_detect();
    dev = vk_device_create();
+   max_rts = MIN2(dev->info.props.limits.maxColorAttachments, 8);
    init_cmdbufs();
    render_pass_clear = create_renderpass(1, true);
    render_pass_dontcare = create_renderpass(1, false);
-   render_pass_multirt_clear = create_renderpass(8, true);
-   render_pass_multirt_dontcare = create_renderpass(8, false);
+   render_pass_multirt_clear = create_renderpass(max_rts, true);
+   render_pass_multirt_dontcare = create_renderpass(max_rts, false);
 
    VkSamplerCreateInfo sci = {0};
    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -2900,7 +2903,7 @@ main(int argc, char *argv[])
    dyn_basic.colorAttachmentCount = 1;
    dyn_basic.pColorAttachments = dyn_att_basic;
    init_dyn_render(&dyn_multirt);
-   dyn_multirt.colorAttachmentCount = MAX_RTS;
+   dyn_multirt.colorAttachmentCount = max_rts;
    dyn_multirt.pColorAttachments = dyn_att_multirt;
 
    unsigned max_images = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
