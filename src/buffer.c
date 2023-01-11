@@ -62,6 +62,8 @@ create_buffer(VkDeviceSize size, VkBufferUsageFlags usage)
    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
    bci.size = size;
    bci.usage = usage;
+   if (dev->info.have_KHR_buffer_device_address)
+      bci.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
    VkBuffer buffer;
    VkResult result = VK(CreateBuffer)(dev->dev, &bci, NULL, &buffer);
