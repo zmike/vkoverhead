@@ -32,11 +32,6 @@ create_renderpass(unsigned num_rts, bool clear)
    VkPipelineStageFlags dep_pipeline = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
    VkAccessFlags dep_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-   if (dev->info.props.limits.maxColorAttachments < 8) {
-      fprintf(stderr, "maxColorAttachments >= 8 required!\n");
-      abort();
-   }
-
    for (unsigned i = 0; i < MAX_RTS; i++) {
       attachment[i].sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
       attachment[i].format = VK_FORMAT_R32G32B32A32_SFLOAT;

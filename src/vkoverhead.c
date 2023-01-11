@@ -2887,7 +2887,7 @@ main(int argc, char *argv[])
    parse_args(argc, (const char**)argv);
    util_cpu_detect();
    dev = vk_device_create();
-   max_rts = MIN2(dev->info.props.limits.maxColorAttachments, 8);
+   max_rts = dev->info.props.limits.maxColorAttachments == 8 ? 8 : 4;
    init_cmdbufs();
    render_pass_clear = create_renderpass(1, true);
    render_pass_dontcare = create_renderpass(1, false);

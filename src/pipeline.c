@@ -257,7 +257,7 @@ create_multirt_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(multirt_frag_spirv, multirt_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 8);
+   return create_pipeline_helper(layout, render_pass, modules, dev->info.props.limits.maxColorAttachments == 8 ? 8 : 4);
 }
 
 VkPipeline
