@@ -3088,11 +3088,9 @@ main(int argc, char *argv[])
    if (test_no > -1) {
       if (!output_only) {
          if (!draw_only && !descriptor_only && !misc_only)
-            printf("\t* submit numbers are reported as operations per second\n"
-                   "\t* percentages for submit cases are relative to 'submit_noop'\n");
+            printf("\t* submit numbers are reported as operations per second\n");
          if (!draw_only && !submit_only && !misc_only)
-            printf("\t* descriptor numbers are reported as thousands of operations per second\n"
-                   "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
+            printf("\t* descriptor numbers are reported as thousands of operations per second\n");
          if (!draw_only && !submit_only && !descriptor_only)
             printf("\t* misc numbers are reported as thousands of operations per second\n"
                    "\t* percentages for misc cases should be ignored\n");
