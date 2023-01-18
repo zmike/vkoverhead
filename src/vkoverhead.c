@@ -236,6 +236,7 @@ static bool is_descriptor_buffer = false;
 
 /* cmdline options */
 static double duration = 1.0;
+static int fixed_iteration_count = 0;
 static int test_no = -1;
 static int start_no = -1;
 static bool color = true;
@@ -2633,7 +2634,19 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    set_render_info(p, multirt);
    if (is_submit)
       setup_submit();
-   double rate = unsupported ? 0.0 : perf_measure_cpu_rate(p->func, duration);
+
+   double rate = 0.0;
+
+   if (!unsupported) {
+      if (fixed_iteration_count == 0) {
+         // duration mode
+         rate = perf_measure_cpu_rate(p->func, duration);
+      } else {
+         // fixed iteration count mode
+         rate = perf_measure_cpu_fixed(p->func, fixed_iteration_count);
+      }
+   }
+
    if (!multirt && strstr(p->name, "draw_multi"))
       rate *= ARRAY_SIZE(draws);
    double ratio = base_rate ? rate / base_rate : 1;
@@ -2726,6 +2739,7 @@ parse_args(int argc, const char **argv)
    bool next_arg_is_test_no = false;
    bool next_arg_is_start_no = false;
    bool next_arg_is_duration = false;
+   bool next_arg_is_fixed = false;
    for (int i = 0; i < argc; i++) {
       if (next_arg_is_test_no || next_arg_is_start_no) {
          errno = 0;
@@ -2753,9 +2767,18 @@ parse_args(int argc, const char **argv)
             abort();
          }
          duration = val;
+      } else if (next_arg_is_fixed) {
+          fixed_iteration_count = 0;
+          int val = strtol(argv[i], NULL, 10);
+          if (errno || val < 0) {
+             fprintf(stderr, "Invalid fixed number of iterations specified\n");
+             abort();
+          }
+          fixed_iteration_count = val;
       }
       next_arg_is_test_no = false;
       next_arg_is_duration = false;
+      next_arg_is_fixed = false;
       if (argv[i][0] != '-')
          continue;
       const char *arg = &argv[i][1];
@@ -2765,6 +2788,8 @@ parse_args(int argc, const char **argv)
          next_arg_is_start_no = true;
       else if (!strcmp(arg, "duration"))
          next_arg_is_duration = true;
+      else if (!strcmp(arg, "fixed"))
+         next_arg_is_fixed = true;
       else if (!strcmp(arg, "nocolor"))
          color = false;
       else if (!strcmp(arg, "output-only"))
@@ -2791,6 +2816,11 @@ parse_args(int argc, const char **argv)
          fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
          exit(0);
       }
+   }
+
+   if (fixed_iteration_count != 0 && test_no == -1) {
+       fprintf(stderr, "Fixed iteration count specified but test not specified\n");
+       abort();
    }
 }
 

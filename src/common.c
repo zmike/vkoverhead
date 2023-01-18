@@ -115,3 +115,14 @@ perf_measure_cpu_rate(perf_rate_func f, double duration)
 {
 	return measure_rate(f, duration, 1, measure_cpu_time);
 }
+
+
+/**
+ * Return iterations/second for a fixed number of iterations
+ * Use a larger iteration count if you want more precision.
+ */
+double
+perf_measure_cpu_fixed(perf_rate_func f, int iterations)
+{
+    return iterations / measure_cpu_time(f, iterations);
+}
