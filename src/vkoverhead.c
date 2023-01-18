@@ -2813,7 +2813,7 @@ parse_args(int argc, const char **argv)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
-         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only]\n");
+         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-fixed ITERATIONS]\n");
          exit(0);
       }
    }
