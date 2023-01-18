@@ -2842,6 +2842,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
       VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
    };
    mutable.descriptorTypeCount = ARRAY_SIZE(types);
+   mutable.pDescriptorTypes = types;
    VkMutableDescriptorTypeCreateInfoEXT minfo = {0};
    minfo.sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT;
    minfo.mutableDescriptorTypeListCount = 1;
