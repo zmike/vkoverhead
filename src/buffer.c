@@ -30,6 +30,12 @@ create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bo
    VkMemoryAllocateInfo mai = {0};
    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
    mai.allocationSize = size;
+
+   VkMemoryAllocateFlagsInfo ai = {0};
+   ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+   ai.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+   if (dev->info.have_KHR_buffer_device_address)
+      mai.pNext = &ai;
    mai.memoryTypeIndex = host ? dev->host_mem_idx : dev->vram_mem_idx;
    if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
       VkMemoryPropertyFlags domains = host ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
