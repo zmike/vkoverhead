@@ -28,6 +28,9 @@ double
 perf_measure_cpu_rate(perf_rate_func f, double minDuration);
 
 double
+perf_measure_cpu_fixed(perf_rate_func f, int iterations);
+
+double
 perf_measure_gpu_rate(perf_rate_func f, double minDuration);
 
 #endif /* COMMON_H */
