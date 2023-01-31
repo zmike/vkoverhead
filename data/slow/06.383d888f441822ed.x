@@ -58,6 +58,7 @@ pso_383d888f441822ed(VkPipelineLayout layout, VkRenderPass renderPass, void *sha
 VkShaderModule *modules = (VkShaderModule *)shader_ptr;
    VkPipelineShaderStageCreateInfo pci_VkPipelineShaderStageCreateInfo[1];
    pci_VkPipelineShaderStageCreateInfo[0].pNext = NULL;
+   pci_VkPipelineShaderStageCreateInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
    pci_VkPipelineShaderStageCreateInfo[0].flags = 0;
    pci_VkPipelineShaderStageCreateInfo[0].pName = "MainVs";
    pci_VkPipelineShaderStageCreateInfo[0].module = modules[0];

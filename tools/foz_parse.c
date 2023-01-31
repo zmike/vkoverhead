@@ -158,11 +158,11 @@ parse_array_shader(cJSON *c, FILE *f, const char *name, unsigned iter)
    snprintf(str, sizeof(str), "%s[%u]", name, iter);
    if (!cJSON_GetObjectItemCaseSensitive(c, "pNext"))
       fprintf(f, IND"%s.pNext = NULL;\n", str);
+   fprintf(f, IND"%s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;\n", str);
    cJSON *i;
    bool have_spec = false;
    cJSON_ArrayForEach(i, c) {
       if (0) {
-      INT(sType);
       INT(flags);
       INT(stage);
       } else if (!strcmp(i->string, "module")) {
