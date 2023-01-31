@@ -628,6 +628,7 @@ add_project_arguments(cpp_args, language : ['cpp'])
 inc_util = [include_directories('util')]
 
 subdir('src')
+subdir('tools')
 subdir('util')
 subdir('vulkan')
 
@@ -647,6 +648,14 @@ vkoverhead = executable(
   'vkoverhead',
   [files_vkoverhead, vk_device_info, vk_instance, vk_dispatch_table, vk_enum_to_str, vk_extensions, files_util],
   include_directories : [inc_src, inc_vk, inc_util],
+  dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, idep_mesautilc11],
+  c_args: vk_c_args,
+)
+
+foz_parse = executable(
+  'foz_parse',
+  [files_foz_parse, files_util, vk_enum_to_str],
+  include_directories : [inc_util, inc_vk],
   dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, idep_mesautilc11],
   c_args: vk_c_args,
 )
