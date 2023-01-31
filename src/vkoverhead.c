@@ -225,6 +225,10 @@ static VkDeviceAddress sampler_db_bda[2];
 static VkBuffer image_db[2];
 static VkDeviceAddress image_db_bda[2];
 
+/* special-case variables */
+static VkPipeline depthonly_pipelines[4];
+static VkPipelineLayout depthonly_layout;
+
 static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
 static uint64_t count = 0;
@@ -2025,6 +2029,38 @@ misc_copy_mutable_4region_mismatched(unsigned iterations)
    copy(iterations, true, true, true);
 }
 
+static VkGraphicsPipelineCreateInfo depthonly_pci;
+static void
+misc_compile_fastlink_depthonly(unsigned iterations)
+{
+   iterations = filter_overflow(misc_compile_fastlink_depthonly, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   cleanup_func = reset_gpl;
+
+   depthonly_pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+   depthonly_pci.layout = depthonly_layout;
+   VkPipelineLibraryCreateInfoKHR PIPELINE_LIBRARY_CREATE_INFO_KHR;
+   depthonly_pci.pNext = &PIPELINE_LIBRARY_CREATE_INFO_KHR;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.sType = 1000290000;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.pNext = NULL;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.libraryCount = 4;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.pLibraries = depthonly_pipelines;
+
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VkPipeline pipeline;
+      VkResult result = VK(CreateGraphicsPipelines)(dev->dev, VK_NULL_HANDLE, 1, &depthonly_pci, NULL, &pipeline);
+      VK_CHECK("CreateGraphicsPipelines", result);
+#if VK_USE_64_BIT_PTR_DEFINES==1
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (int64_t*)pipeline;
+#else
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
+#endif
+   }
+   cleanup_func = NULL;
+}
+
+
 struct perf_case {
    const char *name;
    perf_rate_func func;
@@ -2206,6 +2242,7 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_copy_mutable),
    CASE_MISC(misc_copy_mutable_4region),
    CASE_MISC(misc_copy_mutable_4region_mismatched),
+   CASE_MISC(misc_compile_fastlink_depthonly, check_graphics_pipeline_library),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
@@ -3003,6 +3040,7 @@ main(int argc, char *argv[])
             _mesa_hash_table_insert(&gpl_pipeline_table, key, pipeline_gpl_vert_final[i]);
          }
       }
+      depthonly_layout = depthonly_init(depthonly_pipelines);
    }
 
    cmdbuf = pools[0].cmdbufs[0];

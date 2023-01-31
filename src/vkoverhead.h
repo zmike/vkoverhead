@@ -62,6 +62,7 @@ VkPipeline create_ssbo_many_pipeline(VkRenderPass render_pass, VkPipelineLayout 
 VkPipeline create_vattrib_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layout);
 VkPipeline create_gpl_basic_pipeline(VkRenderPass render_pass, VkPipelineLayout layout);
 VkPipeline create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineVertexInputStateCreateInfo *vertex_input_state);
+VkPipelineLayout depthonly_init(VkPipeline *pipelines);
 
 VkBuffer create_vertex_buffer(void);
 VkBuffer create_uniform_buffer(void);
