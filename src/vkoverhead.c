@@ -390,7 +390,8 @@ begin_cmdbuf(void)
       if (!is_dynamic)
          VK(CmdBindVertexBuffers)(cmdbuf, 0, ARRAY_SIZE(vbo), vbo, offsets);
       VK(CmdBindIndexBuffer)(cmdbuf, index_bo[0], 0, VK_INDEX_TYPE_UINT32);
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, desc_set_basic, 0, NULL);
+      if (!is_descriptor_buffer)
+         VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, desc_set_basic, 0, NULL);
    }
 
    if (is_descriptor_buffer && check_descriptor_buffer()) {
@@ -2648,7 +2649,10 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    } else {
       p = &cases_misc[case_idx - ARRAY_SIZE(cases_draw) - ARRAY_SIZE(cases_submit) - ARRAY_SIZE(cases_descriptor)];
    }
-   if (cmdbuf_active && (!is_submit || !submit_init)) {
+   bool was_descriptor_buffer = is_descriptor_buffer;
+   unsigned name_len = strlen(p->name);
+   is_descriptor_buffer = !strcmp(&p->name[name_len - 1 - 3], "_db") || strstr(p->name, "_db_");
+   if (cmdbuf_active && (!is_submit || !submit_init || was_descriptor_buffer != is_descriptor_buffer)) {
       end_cmdbuf();
       next_cmdbuf();
    }
@@ -2656,8 +2660,6 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    is_dynamic = !!strstr(p->name, "dynamic");
    pipelines = p->pipelines;
    bool multirt = !!strstr(p->name, "multirt");
-   unsigned name_len = strlen(p->name);
-   is_descriptor_buffer = !strcmp(&p->name[name_len - 1 - 3], "_db");
    if (is_descriptor_buffer && !unsupported) {
       if (strstr(p->name, "ubo"))
          descriptor_buffer = ubo_db_bda[0];
