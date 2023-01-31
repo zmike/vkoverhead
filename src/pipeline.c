@@ -25,20 +25,6 @@
 #include "vkoverhead.h"
 #include "data/shaders.x"
 
-#include "data/depthonly/01.09146e52defab964.x"
-#include "data/depthonly/01.0bee72a75e9b777d.x"
-#include "data/depthonly/01.48465701329d9e2c.x"
-#include "data/depthonly/01.5d3d8cb814dcb447.x"
-#include "data/depthonly/01.6898ef3a01c2d55c.x"
-#include "data/depthonly/02.800e7eefee23e6f4.x"
-#include "data/depthonly/02.88d1ffa45096fb09.x"
-#include "data/depthonly/02.cb3985cfac50f434.x"
-#include "data/depthonly/03.780aa78157656308.x"
-#include "data/depthonly/06.022584b7c03a4127.x"
-#include "data/depthonly/06.0de5ebd3a8b0d81d.x"
-#include "data/depthonly/06.164cf1086d7f78be.x"
-#include "data/depthonly/06.4fa452ff1edadbe1.x"
-#include "data/depthonly/depthonly.x"
 
 static VkPipeline
 create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModule *modules,
@@ -177,7 +163,7 @@ create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModul
    return pipeline;
 }
 
-static VkShaderModule
+VkShaderModule
 create_shader_module(unsigned char *spirv, unsigned int size)
 {
    VkShaderModule mod;
@@ -528,23 +514,4 @@ create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPi
    };
 
    return create_pipeline(layout, render_pass, NULL, vertex_input_state, 1, false, &gplci, 0);
-}
-
-
-VkPipelineLayout
-depthonly_init(VkPipeline *pipelines)
-{
-   VkDescriptorSetLayout dsl[4] = {
-      dsl_88d1ffa45096fb09(),
-      VK_NULL_HANDLE,
-      dsl_cb3985cfac50f434(),
-      dsl_800e7eefee23e6f4()
-   };
-   VkPipelineLayout layout = layout_780aa78157656308(dsl);
-   VkShaderModule modules[1] = {create_shader_module(depthonly_spv, depthonly_spv_len)};
-   pipelines[0] = pso_0de5ebd3a8b0d81d(VK_NULL_HANDLE, VK_NULL_HANDLE, NULL);
-   pipelines[1] = pso_164cf1086d7f78be(VK_NULL_HANDLE, VK_NULL_HANDLE, NULL);
-   pipelines[2] = pso_4fa452ff1edadbe1(layout, VK_NULL_HANDLE, modules);
-   pipelines[3] = pso_022584b7c03a4127(layout, VK_NULL_HANDLE, NULL);
-   return layout;
 }

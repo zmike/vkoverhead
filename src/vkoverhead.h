@@ -40,6 +40,8 @@ extern struct vk_device *dev;
 /* this is probably big enough to hold 16 descriptors on any hw */
 #define DESCRIPTOR_BUFFER_SIZE (16 * 256)
 
+
+VkShaderModule create_shader_module(unsigned char *spirv, unsigned int size);
 VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutBinding *bindings, unsigned num_bindings, bool push, bool host, bool buffer, void *pNext);
 VkDescriptorSet create_descriptor_set(VkDescriptorSetLayout desc_layout, VkDescriptorPoolSize *size, bool host, void *pNext);
 VkRenderPass create_renderpass(unsigned num_rts, bool clear);

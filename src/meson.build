@@ -27,6 +27,7 @@ files_vkoverhead = files(
   'renderpass.c',
   'vkoverhead.c',
   'vk_device.c',
+  'depthonly.c',
 )
 
 
