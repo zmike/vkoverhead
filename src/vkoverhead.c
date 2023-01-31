@@ -228,6 +228,8 @@ static VkDeviceAddress image_db_bda[2];
 /* special-case variables */
 static VkPipeline depthonly_pipelines[4];
 static VkPipelineLayout depthonly_layout;
+static VkPipeline slow_pipelines[4];
+static VkPipelineLayout slow_layout;
 
 static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
@@ -2061,6 +2063,37 @@ misc_compile_fastlink_depthonly(unsigned iterations)
    cleanup_func = NULL;
 }
 
+static VkGraphicsPipelineCreateInfo slow_pci;
+static void
+misc_compile_fastlink_slow(unsigned iterations)
+{
+   iterations = filter_overflow(misc_compile_fastlink_slow, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+   cleanup_func = reset_gpl;
+
+   slow_pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+   slow_pci.layout = slow_layout;
+   VkPipelineLibraryCreateInfoKHR PIPELINE_LIBRARY_CREATE_INFO_KHR;
+   slow_pci.pNext = &PIPELINE_LIBRARY_CREATE_INFO_KHR;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.sType = 1000290000;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.pNext = NULL;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.libraryCount = 4;
+   PIPELINE_LIBRARY_CREATE_INFO_KHR.pLibraries = slow_pipelines;
+
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VkPipeline pipeline;
+      VkResult result = VK(CreateGraphicsPipelines)(dev->dev, VK_NULL_HANDLE, 1, &slow_pci, NULL, &pipeline);
+      VK_CHECK("CreateGraphicsPipelines", result);
+#if VK_USE_64_BIT_PTR_DEFINES==1
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (int64_t*)pipeline;
+#else
+      pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
+#endif
+   }
+   cleanup_func = NULL;
+}
+
 
 struct perf_case {
    const char *name;
@@ -2244,6 +2277,7 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_copy_mutable_4region),
    CASE_MISC(misc_copy_mutable_4region_mismatched),
    CASE_MISC(misc_compile_fastlink_depthonly, check_graphics_pipeline_library),
+   CASE_MISC(misc_compile_fastlink_slow, check_graphics_pipeline_library),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
@@ -3043,6 +3077,7 @@ main(int argc, char *argv[])
          }
       }
       depthonly_layout = depthonly_init(depthonly_pipelines);
+      slow_layout = slow_init(slow_pipelines);
    }
 
    cmdbuf = pools[0].cmdbufs[0];

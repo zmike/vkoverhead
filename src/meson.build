@@ -28,6 +28,7 @@ files_vkoverhead = files(
   'vkoverhead.c',
   'vk_device.c',
   'depthonly.c',
+  'slow.c',
 )
 
 
