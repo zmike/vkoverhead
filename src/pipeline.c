@@ -43,7 +43,8 @@
 static VkPipeline
 create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModule *modules,
                 VkPipelineVertexInputStateCreateInfo *vertex_input_state, unsigned num_rts, bool dynamic,
-                VkGraphicsPipelineLibraryCreateInfoEXT *gplci)
+                VkGraphicsPipelineLibraryCreateInfoEXT *gplci,
+                VkPipelineCreateFlags flags)
 {
    VkPipelineInputAssemblyStateCreateInfo primitive_state = {0};
    primitive_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -145,6 +146,7 @@ create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModul
       pci.pNext = &rendering;
    else
       pci.pNext = gplci;
+   pci.flags |= flags;
    pci.pVertexInputState = vertex_input_state;
    pci.pInputAssemblyState = &primitive_state;
    pci.pRasterizationState = &rast_state;
@@ -232,7 +234,7 @@ generate_vattribs(VkVertexInputBindingDescription *bindings, VkVertexInputAttrib
 }
 
 static VkPipeline
-create_pipeline_helper(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModule *modules, unsigned num_rts)
+create_pipeline_helper(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModule *modules, unsigned num_rts, VkPipelineCreateFlags flags)
 {
    VkVertexInputBindingDescription vbinding;
    VkVertexInputAttributeDescription vattr;
@@ -243,7 +245,7 @@ create_pipeline_helper(VkPipelineLayout layout, VkRenderPass render_pass, VkShad
    vertex_input_state.pVertexAttributeDescriptions = &vattr;
    vertex_input_state.vertexAttributeDescriptionCount = 1;
    generate_vattribs(&vbinding, &vattr, 1);
-   return create_pipeline(layout, render_pass, modules, &vertex_input_state, num_rts, false, NULL);
+   return create_pipeline(layout, render_pass, modules, &vertex_input_state, num_rts, false, NULL, flags);
 }
 
 void
@@ -258,7 +260,7 @@ create_basic_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPipe
    };
 
    for (unsigned i = 0; i < 4; i++)
-      pipelines[i] = create_pipeline_helper(layout, render_pass, modules, 1);
+      pipelines[i] = create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
@@ -272,11 +274,11 @@ create_multirt_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(multirt_frag_spirv, multirt_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, dev->info.props.limits.maxColorAttachments == 8 ? 8 : 4);
+   return create_pipeline_helper(layout, render_pass, modules, dev->info.props.limits.maxColorAttachments == 8 ? 8 : 4, 0);
 }
 
 VkPipeline
-create_ubo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+create_ubo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineCreateFlags flags)
 {
    VkShaderModule modules[5] = {
       create_shader_module(basic_vert_spirv, basic_vert_spirv_len),
@@ -286,7 +288,7 @@ create_ubo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(ubo_frag_spirv, ubo_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, flags);
 }
 
 VkPipeline
@@ -300,11 +302,11 @@ create_sampler_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(sampler_frag_spirv, sampler_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
-create_sampler_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+create_sampler_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineCreateFlags flags)
 {
    VkShaderModule modules[5] = {
       create_shader_module(basic_vert_spirv, basic_vert_spirv_len),
@@ -314,7 +316,7 @@ create_sampler_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(sampler_many_frag_spirv, sampler_many_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, flags);
 }
 
 VkPipeline
@@ -328,11 +330,11 @@ create_image_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(image_frag_spirv, image_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
-create_image_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+create_image_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineCreateFlags flags)
 {
    unsigned char *spirv = image_many4_frag_spirv;
    unsigned len = image_many4_frag_spirv_len;
@@ -348,7 +350,7 @@ create_image_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(spirv, len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, flags);
 }
 
 VkPipeline
@@ -362,7 +364,7 @@ create_tbo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(tbo_frag_spirv, tbo_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
@@ -376,7 +378,7 @@ create_tbo_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(tbo_many_frag_spirv, tbo_many_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
@@ -390,7 +392,7 @@ create_ibo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(ibo_frag_spirv, ibo_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
@@ -410,7 +412,7 @@ create_ibo_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(spirv, len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
@@ -424,11 +426,11 @@ create_ssbo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(ssbo_frag_spirv, ssbo_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, 0);
 }
 
 VkPipeline
-create_ssbo_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
+create_ssbo_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineCreateFlags flags)
 {
    VkShaderModule modules[5] = {
       create_shader_module(basic_vert_spirv, basic_vert_spirv_len),
@@ -438,7 +440,7 @@ create_ssbo_many_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       create_shader_module(ssbo_many_frag_spirv, ssbo_many_frag_spirv_len),
    };
 
-   return create_pipeline_helper(layout, render_pass, modules, 1);
+   return create_pipeline_helper(layout, render_pass, modules, 1, flags);
 }
 
 void
@@ -464,7 +466,7 @@ create_vattrib_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPi
 
    for (unsigned i = 0; i < 4; i++) {
       generate_vattribs(vbinding, vattr, 16);
-      pipelines[i] = create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, false, NULL);
+      pipelines[i] = create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, false, NULL, 0);
    }
 }
 
@@ -489,7 +491,7 @@ create_vattrib_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layou
    vertex_input_state.vertexAttributeDescriptionCount = 16;
    generate_vattribs(vbinding, vattr, 16);
 
-   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, true, NULL);
+   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, true, NULL, 0);
 }
 
 VkPipeline
@@ -509,7 +511,7 @@ create_gpl_basic_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
       VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT | VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT | VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT
    };
 
-   return create_pipeline(layout, render_pass, modules, NULL, 1, false, &gplci);
+   return create_pipeline(layout, render_pass, modules, NULL, 1, false, &gplci, 0);
 }
 
 VkPipeline
@@ -525,7 +527,7 @@ create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPi
       VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT
    };
 
-   return create_pipeline(layout, render_pass, NULL, vertex_input_state, 1, false, &gplci);
+   return create_pipeline(layout, render_pass, NULL, vertex_input_state, 1, false, &gplci, 0);
 }
 
 

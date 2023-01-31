@@ -2999,13 +2999,13 @@ main(int argc, char *argv[])
    pipeline_multirt = create_multirt_pipeline(render_pass_multirt_clear, layout_basic);
    if (check_dynamic_rendering())
       pipeline_multrt_dyn = create_multirt_pipeline(VK_NULL_HANDLE, layout_basic);
-   pipeline_ubo = create_ubo_pipeline(render_pass_clear, layout_ubo);
+   pipeline_ubo = create_ubo_pipeline(render_pass_clear, layout_ubo, 0);
    pipeline_ssbo = create_ssbo_pipeline(render_pass_clear, layout_ssbo);
-   pipeline_ssbo_many = create_ssbo_many_pipeline(render_pass_clear, layout_ssbo_many);
+   pipeline_ssbo_many = create_ssbo_many_pipeline(render_pass_clear, layout_ssbo_many, 0);
    pipeline_combined_sampler = create_sampler_pipeline(render_pass_clear, layout_combined_sampler);
-   pipeline_combined_sampler_many = create_sampler_many_pipeline(render_pass_clear, layout_combined_sampler_many);
+   pipeline_combined_sampler_many = create_sampler_many_pipeline(render_pass_clear, layout_combined_sampler_many, 0);
    pipeline_image = create_image_pipeline(render_pass_clear, layout_image);
-   pipeline_image_many = create_image_many_pipeline(render_pass_clear, layout_image_many);
+   pipeline_image_many = create_image_many_pipeline(render_pass_clear, layout_image_many, 0);
    pipeline_tbo = create_tbo_pipeline(render_pass_clear, layout_tbo);
    pipeline_tbo_many = create_tbo_many_pipeline(render_pass_clear, layout_tbo_many);
    pipeline_ibo = create_ibo_pipeline(render_pass_clear, layout_ibo);
@@ -3101,10 +3101,10 @@ main(int argc, char *argv[])
       init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SSBOS, &layout_ssbo_many_db, NULL, NULL, NULL, NULL, NULL, 0);
       init_descriptor_state(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SAMPLERS, &layout_combined_sampler_many_db, NULL, NULL, NULL, NULL, NULL, 0);
       init_descriptor_state(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, max_images, &layout_image_many_db, NULL, NULL, NULL, NULL, NULL, 0);
-      pipeline_ubo_db = create_ubo_pipeline(render_pass_clear, layout_ubo_db);
-      pipeline_ssbo_many_db = create_ssbo_many_pipeline(render_pass_clear, layout_ssbo_many_db);
-      pipeline_combined_sampler_many_db = create_sampler_many_pipeline(render_pass_clear, layout_combined_sampler_many_db);
-      pipeline_image_many_db = create_image_many_pipeline(render_pass_clear, layout_image_many_db);
+      pipeline_ubo_db = create_ubo_pipeline(render_pass_clear, layout_ubo_db, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+      pipeline_ssbo_many_db = create_ssbo_many_pipeline(render_pass_clear, layout_ssbo_many_db, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+      pipeline_combined_sampler_many_db = create_sampler_many_pipeline(render_pass_clear, layout_combined_sampler_many_db, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+      pipeline_image_many_db = create_image_many_pipeline(render_pass_clear, layout_image_many_db, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
    }
 
    /* ensure that setup completes before proceeding */
