@@ -2857,6 +2857,7 @@ parse_args(int argc, const char **argv)
           fixed_iteration_count = val;
       }
       next_arg_is_test_no = false;
+      next_arg_is_start_no = false;
       next_arg_is_duration = false;
       next_arg_is_fixed = false;
       if (argv[i][0] != '-')
