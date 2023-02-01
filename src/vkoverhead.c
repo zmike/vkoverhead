@@ -805,7 +805,6 @@ draw_16vattrib_change_gpl(unsigned iterations)
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
 #endif
    }
-   cleanup_func = NULL;
 }
 
 static VkVertexInputBindingDescription gpl_vbinding[2][16];
@@ -2060,7 +2059,6 @@ misc_compile_fastlink_depthonly(unsigned iterations)
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
 #endif
    }
-   cleanup_func = NULL;
 }
 
 static VkGraphicsPipelineCreateInfo slow_pci;
@@ -2091,7 +2089,6 @@ misc_compile_fastlink_slow(unsigned iterations)
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
 #endif
    }
-   cleanup_func = NULL;
 }
 
 
@@ -2672,6 +2669,7 @@ static double
 perf_run(unsigned case_idx, double base_rate, double duration)
 {
    struct perf_case *p;
+   cleanup_func = NULL;
    is_submit = false;
    if (case_idx < ARRAY_SIZE(cases_draw)) {
       p = &cases_draw[case_idx];
