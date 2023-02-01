@@ -17,6 +17,7 @@ This reuses code from Mesa and aims to be just as portable.
 * `./vkoverhead` to run all test cases
 * `./vkoverhead -list` to list all test cases
 * `./vkoverhead -test 5` to run test case 5
+* `./vkoverhead -start 5` to start with test case 5
 * `./vkoverhead -submit-only` to run only the submit-related test cases
 * `./vkoverhead -nocolor` to suppress color output (for scripting)
 * `./vkoverhead -duration 5` to use a minimum duration of 5 seconds (default is 1 second)
