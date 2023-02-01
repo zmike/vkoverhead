@@ -305,6 +305,15 @@ check_descriptor_buffer(void)
    return dev->info.have_EXT_descriptor_buffer;
 }
 
+static bool
+check_dota2(void)
+{
+   return check_graphics_pipeline_library() &&
+          dev->info.props.limits.maxBoundDescriptorSets >= 5 &&
+          dev->info.props.limits.maxPerStageDescriptorUniformBuffers >= 20 &&
+          dev->info.props.limits.maxPerStageDescriptorSampledImages >= 2185;
+}
+
 static void
 reset_gpl(void *data, void *gdata, int thread_idx)
 {
@@ -2273,8 +2282,8 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_copy_mutable),
    CASE_MISC(misc_copy_mutable_4region),
    CASE_MISC(misc_copy_mutable_4region_mismatched),
-   CASE_MISC(misc_compile_fastlink_depthonly, check_graphics_pipeline_library),
-   CASE_MISC(misc_compile_fastlink_slow, check_graphics_pipeline_library),
+   CASE_MISC(misc_compile_fastlink_depthonly, check_dota2),
+   CASE_MISC(misc_compile_fastlink_slow, check_dota2),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
@@ -3074,8 +3083,10 @@ main(int argc, char *argv[])
             _mesa_hash_table_insert(&gpl_pipeline_table, key, pipeline_gpl_vert_final[i]);
          }
       }
-      depthonly_layout = depthonly_init(depthonly_pipelines);
-      slow_layout = slow_init(slow_pipelines);
+      if (check_dota2()) {
+         depthonly_layout = depthonly_init(depthonly_pipelines);
+         slow_layout = slow_init(slow_pipelines);
+      }
    }
 
    cmdbuf = pools[0].cmdbufs[0];
