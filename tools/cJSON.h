@@ -32,6 +32,8 @@ extern "C"
 #define __WINDOWS__
 #endif
 
+#include <stdint.h>
+
 #ifdef __WINDOWS__
 
 /* When compiling for windows, we specify a specific calling convention to avoid issues where we are being called from a project with a different default calling convention.  For windows you have 3 define options:
