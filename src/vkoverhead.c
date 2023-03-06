@@ -799,6 +799,7 @@ draw_16vattrib_change_gpl(unsigned iterations)
    };
    draw_16vattrib_change_gpl_pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
    draw_16vattrib_change_gpl_pci.pNext = &libstate;
+   draw_16vattrib_change_gpl_pci.layout = layout_basic;
    cleanup_func = reset_gpl;
    begin_rp();
    for (unsigned i = 0; i < iterations; i++, count++) {
@@ -3065,6 +3066,7 @@ main(int argc, char *argv[])
       };
       pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
       pci.pNext = &libstate;
+      pci.layout = layout_basic;
       _mesa_hash_table_init(&gpl_pipeline_table, NULL, gpl_hash_vi, gpl_equals_vi);
       VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
       vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
