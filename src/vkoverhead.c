@@ -332,6 +332,7 @@ reset_cmdbuf(void *data, void *gdata, int thread_idx)
    struct pool *p = data;
    VkResult result = VK(ResetCommandPool)(dev->dev, p->cmdpool, 0);
    VK_CHECK("ResetCommandPool", result);
+   VK(TrimCommandPool)(dev->dev, p->cmdpool, 0);
 }
 
 static void
