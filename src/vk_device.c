@@ -307,7 +307,7 @@ vk_device_create(void)
    //}
 
    vk_internal_setup_moltenvk(dev);
-   if (!dev->info.have_KHR_timeline_semaphore) {
+   if (!dev->info.have_KHR_timeline_semaphore && !dev->info.feats12.timelineSemaphore) {
       fprintf(stderr, "KHR_timeline_semaphore is required\n");
       abort();
    }
