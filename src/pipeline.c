@@ -38,7 +38,7 @@ create_pipeline(VkPipelineLayout layout, VkRenderPass render_pass, VkShaderModul
 
    VkPipelineColorBlendAttachmentState blend_att[MAX_RTS] = {0};
    for (unsigned i = 0; i < MAX_RTS; i++)
-      blend_att[i].colorWriteMask = VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM;
+      blend_att[i].colorWriteMask = 0xf;
    VkPipelineColorBlendStateCreateInfo blend_state = {0};
    blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
    blend_state.attachmentCount = num_rts;
