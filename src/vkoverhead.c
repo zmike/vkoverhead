@@ -3166,8 +3166,12 @@ main(int argc, char *argv[])
       VK_CHECK("QueueWaitIdle", result);
    }
    next_cmdbuf();
-   if (!output_only)
-      printf("vkoverhead running on %s:\n", dev->info.props.deviceName);
+   if (!output_only) {
+      printf("vkoverhead running on:\n");
+      printf("- device: \t%s\n", dev->info.props.deviceName);
+      printf("- driver name: \t%s\n", dev->info.driver_props.driverName);
+      printf("- driver info: \t%s\n", dev->info.driver_props.driverInfo);
+   }
    if (!submit_only && !descriptor_only && !misc_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw))
       printf("\t* draw numbers are reported as thousands of operations per second\n"
              "\t* percentages for draw cases are relative to 'draw'\n");
