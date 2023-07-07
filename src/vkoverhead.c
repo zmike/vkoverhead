@@ -240,6 +240,7 @@ static bool is_submit = false;
 static bool is_dynamic = false;
 static bool submit_init = false;
 static bool is_descriptor_buffer = false;
+static bool is_zerovram = false;
 
 /* cmdline options */
 static double duration = 1.0;
@@ -257,6 +258,9 @@ static VkDeviceAddress descriptor_buffer;
 
 static util_queue_execute_func cleanup_func = NULL;
 
+static VkDeviceSize vram_size;
+static VkBuffer zerovram_buffers[MAX_CMDBUF_POOLS][MAX_CMDBUFS];
+static VkDeviceMemory zerovram_mem[MAX_CMDBUF_POOLS][MAX_CMDBUFS];
 
 static bool
 check_multi_draw(void)
@@ -315,6 +319,12 @@ check_dota2(void)
           dev->info.props.limits.maxPerStageDescriptorSampledImages >= 2185;
 }
 
+static bool
+check_zerovram(void)
+{
+   return dev->info.have_EXT_memory_budget;
+}
+
 static void
 init_submit(unsigned cmdbuf_count, unsigned submit_count, void *si, VkCommandBufferSubmitInfo *csi)
 {
@@ -345,10 +355,10 @@ static void
 submit_cmdbufs(unsigned submit_count, void *si)
 {
    if (dev->info.have_KHR_synchronization2) {
-      VkResult result = VK(QueueSubmit2)(dev->queue, submit_count, si, VK_NULL_HANDLE);
+      VkResult result = VK(QueueSubmit2)(dev->queue, submit_count, si, is_zerovram ? pools[cmdbuf_pool_idx].f : VK_NULL_HANDLE);
       VK_CHECK("QueueSubmit2", result);
    } else {
-      VkResult result = VK(QueueSubmit)(dev->queue, submit_count, si, VK_NULL_HANDLE);
+      VkResult result = VK(QueueSubmit)(dev->queue, submit_count, si, is_zerovram ? pools[cmdbuf_pool_idx].f : VK_NULL_HANDLE);
       VK_CHECK("QueueSubmit", result);
    }
 }
@@ -380,16 +390,50 @@ reset_gpl(void *data, void *gdata, int thread_idx)
 }
 
 static void
+reset_zerovram(void *data, void *gdata, int thread_idx)
+{
+   struct pool *p = data;
+   unsigned idx = 0;
+   for (unsigned i = 0; i < MAX_CMDBUF_POOLS; i++) {
+      if (p == &pools[i]) {
+         idx = i;
+         break;
+      }
+   }
+   VK(ResetFences)(dev->dev, 1, &p->f);
+   for (unsigned i = 0; i < MAX_CMDBUFS; i++) {
+      if (zerovram_buffers[idx][i]) {
+         VK(DestroyBuffer)(dev->dev, zerovram_buffers[idx][i], NULL);
+      }
+      if (zerovram_mem[idx][i]) {
+         VK(FreeMemory)(dev->dev, zerovram_mem[idx][i], NULL);
+      }
+   }
+   memset(zerovram_buffers[idx], 0, sizeof(zerovram_buffers[idx]));
+   memset(zerovram_mem[idx], 0, sizeof(zerovram_mem[idx]));
+}
+
+static void
 reset_cmdbuf(void *data, void *gdata, int thread_idx)
 {
    struct pool *p = data;
-   VkResult result = VK(ResetCommandPool)(dev->dev, p->cmdpool, 0);
+   VkResult result;
+   if (is_zerovram) {
+      result = VK(WaitForFences)(dev->dev, 1, &p->f, VK_TRUE, UINT64_MAX);
+      VK_CHECK("WaitForFences", result);
+      /* must be called in thread before fence is signaled */
+      reset_zerovram(data, gdata, thread_idx);
+   }
+   result = VK(ResetCommandPool)(dev->dev, p->cmdpool, 0);
    VK_CHECK("ResetCommandPool", result);
 }
 
 static void
 next_cmdbuf_pool(void)
 {
+   if (is_zerovram) {
+      submit_cmdbufs_helper(1, 1, 1);
+   }
    util_queue_add_job(&queue, &pools[cmdbuf_pool_idx], &pools[cmdbuf_pool_idx].fence, reset_cmdbuf, cleanup_func, 0);
    cmdbuf_pool_idx++;
    cmdbuf_pool_idx %= MAX_CMDBUF_POOLS;
@@ -399,10 +443,16 @@ next_cmdbuf_pool(void)
 static void
 next_cmdbuf(void)
 {
-   cmdbuf_idx++;
-   cmdbuf_idx %= MAX_CMDBUFS;
-   if (cmdbuf_idx == 0)
+   if (is_zerovram) {
+      /* these only use first cmdbuf per pool */
       next_cmdbuf_pool();
+      cmdbuf_idx = 0;
+   } else {
+      cmdbuf_idx++;
+      cmdbuf_idx %= MAX_CMDBUFS;
+      if (cmdbuf_idx == 0)
+         next_cmdbuf_pool();
+   }
    cmdbuf = pools[cmdbuf_pool_idx].cmdbufs[cmdbuf_idx];
 }
 
@@ -575,8 +625,10 @@ begin_rp(void)
 static unsigned
 filter_overflow(perf_rate_func func, unsigned iterations, unsigned divisor)
 {
-   while (count + iterations * divisor > MAX_DRAWS) {
-      unsigned remain = (MAX_DRAWS - count) / divisor;
+   /* zerovram needs 256mb-sized buffers */
+   unsigned limit = is_zerovram ? MIN2(vram_size / 256 / MAX_CMDBUF_POOLS, MAX_CMDBUFS) : MAX_DRAWS;
+   while (count + iterations * divisor > limit) {
+      unsigned remain = (limit - count) / divisor;
       func(remain);
       end_cmdbuf();
       next_cmdbuf();
@@ -2096,6 +2148,41 @@ misc_compile_fastlink_slow(unsigned iterations)
    }
 }
 
+static void
+misc_zerovram(unsigned iterations)
+{
+   iterations = filter_overflow(misc_zerovram, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+
+   assert(cmdbuf_idx == 0);
+
+   VkBufferCopy region = {
+      32,
+      0,
+      4
+   };
+
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      zerovram_buffers[cmdbuf_pool_idx][i] = create_copy_buffer(&zerovram_mem[cmdbuf_pool_idx][i]);
+      VK(CmdCopyBuffer)(cmdbuf, zerovram_buffers[cmdbuf_pool_idx][i], ssbo[cmdbuf_pool_idx], 1, &region);
+   }
+}
+
+static void
+misc_zerovram_manual(unsigned iterations)
+{
+   iterations = filter_overflow(misc_zerovram_manual, iterations, 1);
+   if (!cmdbuf_active)
+      begin_cmdbuf();
+
+   assert(cmdbuf_idx == 0);
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      zerovram_buffers[cmdbuf_pool_idx][i] = create_copy_buffer(&zerovram_mem[cmdbuf_pool_idx][i]);
+      VK(CmdFillBuffer)(cmdbuf, zerovram_buffers[cmdbuf_pool_idx][i], 0, 256 * 1024 * 1024, 0);
+   }
+}
+
 
 struct perf_case {
    const char *name;
@@ -2280,6 +2367,8 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_copy_mutable_4region_mismatched),
    CASE_MISC(misc_compile_fastlink_depthonly, check_dota2),
    CASE_MISC(misc_compile_fastlink_slow, check_dota2),
+   CASE_MISC(misc_zerovram, check_zerovram),
+   CASE_MISC(misc_zerovram_manual, check_zerovram),
 };
 
 #define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
@@ -2676,6 +2765,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    struct perf_case *p;
    cleanup_func = NULL;
    is_submit = false;
+   is_zerovram = false;
    if (case_idx < ARRAY_SIZE(cases_draw)) {
       p = &cases_draw[case_idx];
    } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
@@ -2707,6 +2797,17 @@ perf_run(unsigned case_idx, double base_rate, double duration)
       else if (strstr(p->name, "image"))
          descriptor_buffer = image_db_bda[0];
    }
+   if (strstr(p->name, "zerovram")) {
+      if (!fixed_iteration_count) {
+         /* these tests can't naturally terminate themselves */
+         fprintf(stderr, "zerovram tests must be used with -fixed\n");
+         unsupported = true;
+      } else {
+         is_zerovram = true;
+         if (cmdbuf_idx)
+            next_cmdbuf();
+      }
+   }
    set_render_info(p, multirt);
    if (is_submit)
       setup_submit();
@@ -2736,7 +2837,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    space[sizeof(space) - strlen(p->name)] = 0;
    char space2[12];
    char buf[128];
-   uint64_t r = is_submit ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
+   uint64_t r = is_submit || is_zerovram ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
    snprintf(buf, sizeof(buf), "%"PRIu64, r);
    memset(space2, ' ', sizeof(space2));
    space2[sizeof(space2) - strlen(buf)] = 0;
@@ -3127,6 +3228,30 @@ main(int argc, char *argv[])
    begin_cmdbuf();
    setup();
    end_cmdbuf();
+
+   if (check_zerovram()) {
+      VkDeviceSize avail_vram = 0;
+      VkPhysicalDeviceMemoryProperties2 mem = {0};
+      mem.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+
+      VkPhysicalDeviceMemoryBudgetPropertiesEXT budget = {0};
+      budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+      mem.pNext = &budget;
+      VK(GetPhysicalDeviceMemoryProperties2)(dev->pdev, &mem);
+
+      for (unsigned i = 0; i < mem.memoryProperties.memoryHeapCount; i++) {
+         if (mem.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+            /* VRAM */
+            vram_size += mem.memoryProperties.memoryHeaps[i].size / 1024 / 1024;
+            avail_vram += (mem.memoryProperties.memoryHeaps[i].size - budget.heapUsage[i]) / 1024;
+         }
+      }
+      /* be conservative: require only half of total vram */
+      if (avail_vram < vram_size / 2) {
+         fprintf(stderr, "Disabling zerovam tests: half of total vram required\n");
+         dev->info.have_EXT_memory_budget = false;
+      }
+   }
 
    if (check_descriptor_buffer()) {
       /* descriptor buffer offset binding tests don't actually use the descriptor buffers
