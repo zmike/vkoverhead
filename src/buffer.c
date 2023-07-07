@@ -78,7 +78,7 @@ create_buffer(VkDeviceSize size, VkBufferUsageFlags usage)
 }
 
 static VkBuffer
-create_buffer_bind(VkDeviceSize size, VkBufferUsageFlags usage, bool host)
+create_buffer_bind_mem(VkDeviceSize size, VkBufferUsageFlags usage, bool host, VkDeviceMemory *mem)
 {
    VkBuffer buffer = create_buffer(size, usage);
    VkMemoryRequirements reqs = {0};
@@ -88,10 +88,17 @@ create_buffer_bind(VkDeviceSize size, VkBufferUsageFlags usage, bool host)
       alignment = MAX2(reqs.alignment, dev->info.props.limits.minMemoryMapAlignment);
    else
       alignment = MAX2(reqs.alignment, 256);
-   VkDeviceMemory mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, host);
-   VkResult result = VK(BindBufferMemory)(dev->dev, buffer, mem, 0);
+   *mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, host);
+   VkResult result = VK(BindBufferMemory)(dev->dev, buffer, *mem, 0);
    VK_CHECK("BindBufferMemory", result);
    return buffer;
+}
+
+static VkBuffer
+create_buffer_bind(VkDeviceSize size, VkBufferUsageFlags usage, bool host)
+{
+   VkDeviceMemory mem;
+   return create_buffer_bind_mem(size, usage, host, &mem);
 }
 
 VkBuffer
@@ -136,6 +143,13 @@ VkBuffer
 create_storage_buffer(void)
 {
    VkBuffer buffer = create_buffer_bind(BUFFER_SIZE, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
+   return buffer;
+}
+
+VkBuffer
+create_copy_buffer(VkDeviceMemory *mem)
+{
+   VkBuffer buffer = create_buffer_bind_mem(256 * 1024 * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, mem);
    return buffer;
 }
 

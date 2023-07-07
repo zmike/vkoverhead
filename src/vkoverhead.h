@@ -67,6 +67,7 @@ VkPipeline create_gpl_vert_pipeline(VkRenderPass render_pass, VkPipelineLayout l
 VkPipelineLayout depthonly_init(VkPipeline *pipelines);
 VkPipelineLayout slow_init(VkPipeline *pipelines);
 
+VkBuffer create_copy_buffer(VkDeviceMemory *mem);
 VkBuffer create_vertex_buffer(void);
 VkBuffer create_uniform_buffer(void);
 VkBuffer create_index_buffer(void);
