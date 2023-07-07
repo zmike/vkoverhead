@@ -315,6 +315,58 @@ check_dota2(void)
 }
 
 static void
+init_submit(unsigned cmdbuf_count, unsigned submit_count, void *si, VkCommandBufferSubmitInfo *csi)
+{
+   VkCommandBuffer *c = pools[cmdbuf_pool_idx].cmdbufs;
+   unsigned cmdbuf_per_submit = cmdbuf_count / submit_count;
+   if (dev->info.have_KHR_synchronization2) {
+      VkSubmitInfo2 *s = si;
+      for (unsigned i = 0; i < submit_count; i++) {
+         s[i].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+         s[i].commandBufferInfoCount = cmdbuf_per_submit;
+         for (unsigned j = 0; j < cmdbuf_per_submit; j++) {
+            csi[i * cmdbuf_per_submit + j].sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+            csi[i * cmdbuf_per_submit + j].commandBuffer = c[i * cmdbuf_per_submit + j];
+         }
+         s[i].pCommandBufferInfos = csi;
+      }
+   } else {
+      VkSubmitInfo *s = si;
+      for (unsigned i = 0; i < submit_count; i++) {
+         s[i].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+         s[i].commandBufferCount = cmdbuf_per_submit;
+         s[i].pCommandBuffers = &c[i * cmdbuf_per_submit];
+      }
+   }
+}
+
+static void
+submit_cmdbufs(unsigned submit_count, void *si)
+{
+   if (dev->info.have_KHR_synchronization2) {
+      VkResult result = VK(QueueSubmit2)(dev->queue, submit_count, si, VK_NULL_HANDLE);
+      VK_CHECK("QueueSubmit2", result);
+   } else {
+      VkResult result = VK(QueueSubmit)(dev->queue, submit_count, si, VK_NULL_HANDLE);
+      VK_CHECK("QueueSubmit", result);
+   }
+}
+
+static void
+submit_cmdbufs_helper(unsigned cmdbuf_count, unsigned submit_count, unsigned iterations)
+{
+   union {
+      VkSubmitInfo2 s2;
+      VkSubmitInfo s1;
+   } s[MAX_CMDBUFS] = {0};
+   VkCommandBufferSubmitInfo csi[MAX_CMDBUFS] = {0};
+   init_submit(cmdbuf_count, submit_count, s, csi);
+   for (unsigned i = 0; i < iterations; i++) {
+      submit_cmdbufs(submit_count, s);
+   }
+}
+
+static void
 reset_gpl(void *data, void *gdata, int thread_idx)
 {
    struct pool *p = data;
@@ -1044,58 +1096,6 @@ draw_image_db_change(unsigned iterations)
    for (unsigned i = 0; i < iterations; i++, count++) {
       VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image_many_db, 0, 1, &zero, &offsets[i & 1]);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
-   }
-}
-
-static void
-init_submit(unsigned cmdbuf_count, unsigned submit_count, void *si, VkCommandBufferSubmitInfo *csi)
-{
-   VkCommandBuffer *c = pools[cmdbuf_pool_idx].cmdbufs;
-   unsigned cmdbuf_per_submit = cmdbuf_count / submit_count;
-   if (dev->info.have_KHR_synchronization2) {
-      VkSubmitInfo2 *s = si;
-      for (unsigned i = 0; i < submit_count; i++) {
-         s[i].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-         s[i].commandBufferInfoCount = cmdbuf_per_submit;
-         for (unsigned j = 0; j < cmdbuf_per_submit; j++) {
-            csi[i * cmdbuf_per_submit + j].sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-            csi[i * cmdbuf_per_submit + j].commandBuffer = c[i * cmdbuf_per_submit + j];
-         }
-         s[i].pCommandBufferInfos = csi;
-      }
-   } else {
-      VkSubmitInfo *s = si;
-      for (unsigned i = 0; i < submit_count; i++) {
-         s[i].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-         s[i].commandBufferCount = cmdbuf_per_submit;
-         s[i].pCommandBuffers = &c[i * cmdbuf_per_submit];
-      }
-   }
-}
-
-static void
-submit_cmdbufs(unsigned submit_count, void *si)
-{
-   if (dev->info.have_KHR_synchronization2) {
-      VkResult result = VK(QueueSubmit2)(dev->queue, submit_count, si, VK_NULL_HANDLE);
-      VK_CHECK("QueueSubmit2", result);
-   } else {
-      VkResult result = VK(QueueSubmit)(dev->queue, submit_count, si, VK_NULL_HANDLE);
-      VK_CHECK("QueueSubmit", result);
-   }
-}
-
-static void
-submit_cmdbufs_helper(unsigned cmdbuf_count, unsigned submit_count, unsigned iterations)
-{
-   union {
-      VkSubmitInfo2 s2;
-      VkSubmitInfo s1;
-   } s[MAX_CMDBUFS] = {0};
-   VkCommandBufferSubmitInfo csi[MAX_CMDBUFS] = {0};
-   init_submit(cmdbuf_count, submit_count, s, csi);
-   for (unsigned i = 0; i < iterations; i++) {
-      submit_cmdbufs(submit_count, s);
    }
 }
 
