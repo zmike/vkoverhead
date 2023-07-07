@@ -3309,7 +3309,7 @@ main(int argc, char *argv[])
          if (!draw_only && !submit_only && !descriptor_only)
             printf("\t* descriptor numbers are reported as thousands of operations per second\n");
          if (!draw_only && !submit_only && !misc_only)
-            printf("\t* misc numbers are reported as thousands of operations per second\n"
+            printf("\t* misc numbers (besides zerovram) are reported as thousands of operations per second\n"
                    "\t* percentages for misc cases should be ignored\n");
       }
       perf_run(test_no, base_rate, duration);
