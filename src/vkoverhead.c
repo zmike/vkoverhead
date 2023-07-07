@@ -3158,8 +3158,10 @@ main(int argc, char *argv[])
       VK_CHECK("QueueSubmit", result);
       result = VK(QueueWaitIdle)(dev->queue);
       VK_CHECK("QueueWaitIdle", result);
+      result = VK(ResetCommandPool)(dev->dev, pools[0].cmdpool, 0);
+      VK_CHECK("ResetCommandPool", result);
    }
-   next_cmdbuf();
+
    if (!output_only) {
       printf("vkoverhead running on:\n");
       printf("- device: \t%s\n", dev->info.props.deviceName);
