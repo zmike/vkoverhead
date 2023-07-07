@@ -2894,8 +2894,8 @@ parse_args(int argc, const char **argv)
       }
    }
 
-   if (fixed_iteration_count != 0 && test_no == -1) {
-       fprintf(stderr, "Fixed iteration count specified but test not specified\n");
+   if (fixed_iteration_count != 0 && test_no == -1 && start_no == -1) {
+       fprintf(stderr, "Fixed iteration count specified but test|start not specified\n");
        abort();
    }
 }
