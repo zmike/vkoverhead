@@ -1063,9 +1063,6 @@ init_submit(unsigned cmdbuf_count, unsigned submit_count, void *si, VkCommandBuf
          }
          s[i].pCommandBufferInfos = csi;
       }
-
-      VkResult result = VK(QueueSubmit2)(dev->queue, submit_count, s, VK_NULL_HANDLE);
-      VK_CHECK("QueueSubmit2", result);
    } else {
       VkSubmitInfo *s = si;
       for (unsigned i = 0; i < submit_count; i++) {
@@ -1073,9 +1070,6 @@ init_submit(unsigned cmdbuf_count, unsigned submit_count, void *si, VkCommandBuf
          s[i].commandBufferCount = cmdbuf_per_submit;
          s[i].pCommandBuffers = &c[i * cmdbuf_per_submit];
       }
-
-      VkResult result = VK(QueueSubmit)(dev->queue, submit_count, s, VK_NULL_HANDLE);
-      VK_CHECK("QueueSubmit", result);
    }
 }
 
