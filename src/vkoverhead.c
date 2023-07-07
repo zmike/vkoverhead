@@ -46,6 +46,7 @@ struct pool {
    struct util_queue_fence fence;
    VkCommandPool cmdpool;
    VkCommandBuffer cmdbufs[MAX_CMDBUFS];
+   VkFence f;
 #if VK_USE_64_BIT_PTR_DEFINES==1
    int64_t *trash_ptrs[MAX_CMDBUFS][MAX_DRAWS];
 #else
@@ -2788,6 +2789,8 @@ init_cmdbufs(void)
    cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
    cbai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
    cbai.commandBufferCount = MAX_CMDBUFS;
+   VkFenceCreateInfo fci = {0};
+   fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 
    for (unsigned i = 0; i < MAX_CMDBUF_POOLS; i++) {
       util_queue_fence_init(&pools[i].fence);
@@ -2796,6 +2799,8 @@ init_cmdbufs(void)
       cbai.commandPool = pools[i].cmdpool;
       result = VK(AllocateCommandBuffers)(dev->dev, &cbai, pools[i].cmdbufs);
       VK_CHECK("AllocateCommandBuffers", result);
+      result = VK(CreateFence)(dev->dev, &fci, NULL, &pools[i].f);
+      VK_CHECK("CreateFence", result);
    }
 }
 
