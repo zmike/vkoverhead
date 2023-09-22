@@ -2762,6 +2762,10 @@ set_render_info(const struct perf_case *p, bool multirt)
 static double
 perf_run(unsigned case_idx, double base_rate, double duration)
 {
+   /* avoid clobbering in-use resources / clobbering perf */
+   VkResult result = VK(QueueWaitIdle)(dev->queue);
+   VK_CHECK("QueueWaitIdle", result);
+
    struct perf_case *p;
    cleanup_func = NULL;
    is_submit = false;
@@ -3331,9 +3335,6 @@ main(int argc, char *argv[])
          for (unsigned i = start; i < ARRAY_SIZE(cases_submit); i++)
             perf_run(ARRAY_SIZE(cases_draw) + i, base_rate, duration);
          if (!submit_only) {
-            /* avoid clobbering in-use resources */
-            result = VK(QueueWaitIdle)(dev->queue);
-            VK_CHECK("QueueWaitIdle", result);
             next_cmdbuf();
             while (cmdbuf_idx || cmdbuf_pool_idx)
                next_cmdbuf();
