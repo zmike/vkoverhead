@@ -247,6 +247,7 @@ static double duration = 1.0;
 static int fixed_iteration_count = 0;
 static int test_no = -1;
 static int start_no = -1;
+static bool csv = false;
 static bool color = true;
 static bool submit_only = false;
 static bool draw_only = false;
@@ -2696,6 +2697,80 @@ only_submit:
 #define COLOR_YELLOW	"\033[1;33m"
 #define COLOR_CYAN	"\033[1;36m"
 
+void
+print_table_header(bool csv, char* column_1, char* column_2, char* column_3, char* column_4)
+{
+   if (csv) {
+      printf(" %3s, %-51s, %8s, %5s\n", column_1, column_2, column_3, column_4);
+   } else { // Markdown
+      printf("\n| %3s | %-51s | %8s | %5s |\n", column_1, column_2, column_3, column_4);
+      printf("| --: | --------------------------------------------------- | -------: | -----: |\n");
+   }
+}
+
+void
+print_table_row(bool csv, bool color, unsigned int number, const char* name, uint64_t result, const char* ratio_color, double ratio)
+{
+   if (csv)
+      printf(" %3u, %-51s, %s%8"PRIu64"%s, %s%5.1f%%%s\n",
+             number,
+             name,
+             color ? COLOR_CYAN : "",
+             result,
+             color ? COLOR_RESET : "",
+             color ? ratio_color : "",
+             ratio,
+             color ? COLOR_RESET : "");
+   else
+      printf("| %3u | %-51s | %s%8"PRIu64"%s | %s%5.1f%%%s |\n",
+             number,
+             name,
+             color ? COLOR_CYAN : "",
+             result,
+             color ? COLOR_RESET : "",
+             color ? ratio_color : "",
+             ratio,
+             color ? COLOR_RESET : "");
+   return;
+}
+
+void
+print_table_row_unsupported(bool csv, bool color, unsigned int number, const char* name, const char* driver_name)
+{
+   if (csv)
+      printf(" %3u, %-51s, %s%8s%s, %ssmh %s%s\n",
+             number,
+             name,
+             color ? COLOR_YELLOW : "",
+             "Unsupported",
+             color ? COLOR_RESET : "",
+             color ? COLOR_YELLOW : "",
+             driver_name,
+             color ? COLOR_RESET : "");
+   else
+      printf("| %3u | %-51s | %s%8s%s | %ssmh %s%s |\n",
+             number,
+             name,
+             color ? COLOR_YELLOW : "",
+             "Unsupported",
+             color ? COLOR_RESET : "",
+             color ? COLOR_YELLOW : "",
+             driver_name,
+             color ? COLOR_RESET : "");
+   return;
+}
+
+void
+print_warning(bool csv, bool color, char* warning)
+{
+   if (csv)
+      fprintf(stderr, " !!!, %s%-51s%s, !!!!!!!!, !!!!!!\n",
+              COLOR_YELLOW, warning, COLOR_RESET);
+   else
+      fprintf(stderr, "| !!! | %s%-51s%s | !!!!!!!! | !!!!!! |\n",
+              COLOR_YELLOW, warning, COLOR_RESET);
+}
+
 static void
 setup_submit(void)
 {
@@ -2804,7 +2879,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    if (strstr(p->name, "zerovram")) {
       if (!fixed_iteration_count) {
          /* these tests can't naturally terminate themselves */
-         fprintf(stderr, "zerovram tests must be used with -fixed\n");
+         print_warning(csv, color, "zerovram tests must be used with -fixed");
          unsupported = true;
       } else {
          is_zerovram = true;
@@ -2839,12 +2914,9 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    char space[50];
    memset(space, ' ', sizeof(space));
    space[sizeof(space) - strlen(p->name)] = 0;
-   char space2[12];
    char buf[128];
    uint64_t r = is_submit || is_zerovram ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
    snprintf(buf, sizeof(buf), "%"PRIu64, r);
-   memset(space2, ' ', sizeof(space2));
-   space2[sizeof(space2) - strlen(buf)] = 0;
    if (unsupported) {
       char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
       memcpy(name, dev->info.props.deviceName, sizeof(dev->info.props.deviceName));
@@ -2855,30 +2927,12 @@ perf_run(unsigned case_idx, double base_rate, double duration)
          name[i] = 0;
          break;
       }
-      printf(" %3u, %s,%s %s%5"PRIu64"%s, %s%sunsupported (smh %s)%s\n",
-             case_idx, p->name,
-             space,
-             color ? COLOR_CYAN : "",
-             r,
-             color ? COLOR_RESET : "",
-             "",
-             color ? ratio_color : "",
-             name,
-             color ? COLOR_RESET : "");
+      print_table_row_unsupported(csv, color, case_idx, p->name, name);
    } else {
       if (output_only)
          printf("%5"PRIu64"\n", r);
       else
-         printf(" %3u, %s,%s %s%5"PRIu64"%s, %s%s%.1f%%%s\n",
-                case_idx, p->name,
-                space,
-                color ? COLOR_CYAN : "",
-                r,
-                color ? COLOR_RESET : "",
-                space2,
-                color ? ratio_color : "",
-                100 * ratio,
-                color ? COLOR_RESET : "");
+         print_table_row(csv, color, case_idx, p->name, r, ratio_color, 100 * ratio);
    }
    return rate;
 }
@@ -2968,6 +3022,8 @@ parse_args(int argc, const char **argv)
       if (argv[i][0] != '-')
          continue;
       const char *arg = &argv[i][1];
+      if (!strcmp(arg, "csv"))
+         csv = true;
       if (!strcmp(arg, "test"))
          next_arg_is_test_no = true;
       if (!strcmp(arg, "start"))
@@ -2999,7 +3055,7 @@ parse_args(int argc, const char **argv)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
-         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-fixed ITERATIONS]\n");
+         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-fixed ITERATIONS] [-csv]\n");
          exit(0);
       }
    }
@@ -3252,14 +3308,14 @@ main(int argc, char *argv[])
       }
       /* be conservative: require only half of total vram */
       if (avail_vram < vram_size / 2) {
-         fprintf(stderr, "Disabling zerovam tests: half of total vram required\n");
+         print_warning(csv, color, "Disabling zerovam tests: half of total vram required");
          dev->info.have_EXT_memory_budget = false;
       }
    }
 
    if (check_descriptor_buffer()) {
       /* descriptor buffer offset binding tests don't actually use the descriptor buffers
-       * if descriptor buffers will ever be accessed by the gpu, this block should also use vkGetDescriptorEXT
+       * if descriptor buffers will ever be accessed by the GPU, this block should also use vkGetDescriptorEXT
        * to populate the buffers
        */
       for (unsigned i = 0; i < 2; i++) {
@@ -3297,24 +3353,40 @@ main(int argc, char *argv[])
    }
 
    if (!output_only) {
-      printf("vkoverhead running on:\n");
-      printf("- device: \t%s\n", dev->info.props.deviceName);
-      printf("- driver name: \t%s\n", dev->info.driver_props.driverName);
-      printf("- driver info: \t%s\n", dev->info.driver_props.driverInfo);
+      printf("\n| %-*s | %-*s | %-*s |\n",
+             MAX2((int)strlen(dev->info.props.deviceName)       , 11), "Device Name",
+             MAX2((int)strlen(dev->info.driver_props.driverName), 11), "Driver Name",
+             MAX2((int)strlen(dev->info.driver_props.driverInfo), 11), "Driver Info");
+      printf("| ");
+      for (int i=0; i<MAX2((int)strlen(dev->info.props.deviceName)       , 11); i++)
+        printf("-");
+      printf(" | ");
+      for (int i=0; i<MAX2((int)strlen(dev->info.driver_props.driverName), 11); i++)
+        printf("-");
+      printf(" | ");
+      for (int i=0; i<MAX2((int)strlen(dev->info.driver_props.driverInfo), 11); i++)
+        printf("-");
+      printf(" |\n");
+      printf("| %-*s | %-*s | %-*s |\n\n",
+             MAX2((int)strlen(dev->info.props.deviceName)       , 11),
+             dev->info.props.deviceName,
+             MAX2((int)strlen(dev->info.driver_props.driverName), 11),
+             dev->info.driver_props.driverName,
+             MAX2((int)strlen(dev->info.driver_props.driverInfo), 11),
+             dev->info.driver_props.driverInfo );
    }
-   if (!submit_only && !descriptor_only && !misc_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw))
-      printf("\t* draw numbers are reported as thousands of operations per second\n"
-             "\t* percentages for draw cases are relative to 'draw'\n");
+   if (!submit_only && !descriptor_only && !misc_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw)) {
+      print_table_header(csv, "#", "Draw Tests", "1000op/s", "% relative to 'draw'");
+   }
    double base_rate = 0;
    if (test_no > -1) {
       if (!output_only) {
          if (!draw_only && !descriptor_only && !misc_only)
-            printf("\t* submit numbers are reported as operations per second\n");
+            print_table_header(csv, "#", "Submit Tests", "op/s", "% relative to 'submit_noop");
          if (!draw_only && !submit_only && !descriptor_only)
-            printf("\t* descriptor numbers are reported as thousands of operations per second\n");
+            print_table_header(csv, "#", "Descriptor Tests", "1000op/s", "% relative to 'descriptor_noop'");
          if (!draw_only && !submit_only && !misc_only)
-            printf("\t* misc numbers (besides zerovram) are reported as thousands of operations per second\n"
-                   "\t* percentages for misc cases should be ignored\n");
+            print_table_header(csv, "#", "Misc Tests", "1000op/s (besides zerovram)", "% (ignore)");
       }
       perf_run(test_no, base_rate, duration);
    } else {
@@ -3328,8 +3400,7 @@ main(int argc, char *argv[])
       }
       if (!draw_only && !descriptor_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))) {
          if (!output_only)
-            printf("\t* submit numbers are reported as operations per second\n"
-                   "\t* percentages for submit cases are relative to 'submit_noop'\n");
+            print_table_header(csv, "#", "Submit Tests", "op/s", "% relative to 'submit_noop");
          base_rate = perf_run(ARRAY_SIZE(cases_draw), 0, duration);
          unsigned start = start_no == -1 ? 1 : (start_no - ARRAY_SIZE(cases_draw));
          for (unsigned i = start; i < ARRAY_SIZE(cases_submit); i++)
@@ -3344,8 +3415,7 @@ main(int argc, char *argv[])
       }
       if (!draw_only && !submit_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))) {
          if (!output_only)
-            printf("\t* descriptor numbers are reported as thousands of operations per second\n"
-                   "\t* percentages for descriptor cases are relative to 'descriptor_noop'\n");
+            print_table_header(csv, "#", "Descriptor Tests", "1000op/s", "% relative to 'descriptor_noop'");
          base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit), 0, duration);
          unsigned start = start_no == -1 ? 1 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)));
          for (unsigned i = start; i < ARRAY_SIZE(cases_descriptor); i++)
@@ -3355,8 +3425,7 @@ main(int argc, char *argv[])
       }
       if (!draw_only && !submit_only && !descriptor_only) {
          if (!output_only)
-            printf("\t* misc numbers are reported as thousands of operations per second\n"
-                   "\t* percentages for misc cases should be ignored\n");
+            print_table_header(csv, "#", "Misc Tests", "1000op/s (besides zerovram)", "% (ignore)");
          base_rate = 0;
          unsigned start = start_no == -1 ? 1 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)));
          for (unsigned i = start; i < ARRAY_SIZE(cases_misc); i++)
@@ -3366,5 +3435,6 @@ main(int argc, char *argv[])
       }
    }
 
+   printf("\n");
    return 0;
 }
