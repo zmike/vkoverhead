@@ -2712,15 +2712,11 @@ void
 print_table_row(bool csv, bool color, unsigned int number, const char* name, uint64_t result, const char* ratio_color, double ratio)
 {
    if (csv)
-      printf(" %3u, %-51s, %s%8"PRIu64"%s, %s%5.1f%%%s\n",
+      printf(" %3u, %-51s, %8"PRIu64", %5.1f%%\n",
              number,
              name,
-             color ? COLOR_CYAN : "",
              result,
-             color ? COLOR_RESET : "",
-             color ? ratio_color : "",
-             ratio,
-             color ? COLOR_RESET : "");
+             ratio);
    else
       printf("| %3u | %-51s | %s%8"PRIu64"%s | %s%5.1f%%%s |\n",
              number,
@@ -2738,15 +2734,11 @@ void
 print_table_row_unsupported(bool csv, bool color, unsigned int number, const char* name, const char* driver_name)
 {
    if (csv)
-      printf(" %3u, %-51s, %s%8s%s, %ssmh %s%s\n",
+      printf(" %3u, %-51s, %8s, smh %s\n",
              number,
              name,
-             color ? COLOR_YELLOW : "",
              "Unsupported",
-             color ? COLOR_RESET : "",
-             color ? COLOR_YELLOW : "",
-             driver_name,
-             color ? COLOR_RESET : "");
+             driver_name);
    else
       printf("| %3u | %-51s | %s%8s%s | %ssmh %s%s |\n",
              number,
@@ -2764,8 +2756,8 @@ void
 print_warning(bool csv, bool color, char* warning)
 {
    if (csv)
-      fprintf(stderr, " !!!, %s%-51s%s, !!!!!!!!, !!!!!!\n",
-              COLOR_YELLOW, warning, COLOR_RESET);
+      fprintf(stderr, " !!!, %-51s, !!!!!!!!, !!!!!!\n",
+              warning);
    else
       fprintf(stderr, "| !!! | %s%-51s%s | !!!!!!!! | !!!!!! |\n",
               COLOR_YELLOW, warning, COLOR_RESET);
