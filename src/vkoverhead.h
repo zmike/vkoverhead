@@ -80,6 +80,7 @@ VkImageView create_rt(VkImage *ret_image, bool mutable);
 VkImageView create_rt_ms(VkImage *ret_image, VkSampleCountFlags samples, bool mutable);
 VkImageView create_tex(VkImage *ret_image);
 VkImageView create_storage_image(VkImage *ret_image);
+VkImage create_hic_image(VkFormat format, unsigned width, unsigned height, bool cached);
 
 static inline VkImageSubresourceRange
 default_subresourcerange(void)

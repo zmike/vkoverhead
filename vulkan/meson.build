@@ -60,7 +60,8 @@ vk_dispatch_table = custom_target(
   output : ['vk_dispatch_table.c', 'vk_dispatch_table.h'],
   command : [
     prog_python, '@INPUT0@', '--xml', '@INPUT1@',
-    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@'
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@',
+    '--beta', 'false',
   ],
   depend_files : vk_dispatch_table_gen_depend_files,
 )
@@ -71,7 +72,8 @@ vk_enum_to_str = custom_target(
   output : ['vk_enum_to_str.c', 'vk_enum_to_str.h', 'vk_enum_defines.h'],
   command : [
     prog_python, '@INPUT0@', '--xml', '@INPUT1@',
-    '--outdir', meson.current_build_dir()
+    '--outdir', meson.current_build_dir(),
+    '--beta', 'false',
   ],
 )
 

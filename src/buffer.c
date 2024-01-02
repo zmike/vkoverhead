@@ -25,7 +25,7 @@
 #include "vkoverhead.h"
 
 static VkDeviceMemory
-create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bool host)
+create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bool host, bool cached)
 {
    VkMemoryAllocateInfo mai = {0};
    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -36,14 +36,14 @@ create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bo
    ai.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
    if (dev->info.have_KHR_buffer_device_address)
       mai.pNext = &ai;
-   mai.memoryTypeIndex = host ? dev->host_mem_idx : dev->vram_mem_idx;
-   if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
-      VkMemoryPropertyFlags domains = host ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-      for (unsigned i = 0; i < dev->info.mem_props.memoryTypeCount; i++) {
-         if ((dev->info.mem_props.memoryTypes[i].propertyFlags & domains) == domains && BITFIELD_BIT(i) & memoryTypeBits) {
-            mai.memoryTypeIndex = i;
-            break;
-         }
+   VkMemoryPropertyFlags domains = host ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (cached ? VK_MEMORY_PROPERTY_HOST_CACHED_BIT : 0)) : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+   VkMemoryPropertyFlags avoid_domains = (host && !cached) ? VK_MEMORY_PROPERTY_HOST_CACHED_BIT : 0;
+   for (unsigned i = 0; i < dev->info.mem_props.memoryTypeCount; i++) {
+      if ((dev->info.mem_props.memoryTypes[i].propertyFlags & domains) == domains &&
+          (dev->info.mem_props.memoryTypes[i].propertyFlags & avoid_domains) == 0 &&
+          BITFIELD_BIT(i) & memoryTypeBits) {
+         mai.memoryTypeIndex = i;
+         break;
       }
    }
    if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
@@ -88,7 +88,7 @@ create_buffer_bind_mem(VkDeviceSize size, VkBufferUsageFlags usage, bool host, V
       alignment = MAX2(reqs.alignment, dev->info.props.limits.minMemoryMapAlignment);
    else
       alignment = MAX2(reqs.alignment, 256);
-   *mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, host);
+   *mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, host, false);
    VkResult result = VK(BindBufferMemory)(dev->dev, buffer, *mem, 0);
    VK_CHECK("BindBufferMemory", result);
    return buffer;
@@ -176,16 +176,17 @@ create_bufferview(VkBuffer buffer)
 }
 
 static VkImage
-create_image(VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
+create_image(VkImageUsageFlags usage, VkFormat format, VkSampleCountFlags samples,
+             unsigned width, unsigned height, bool mutable)
 {
    VkImageCreateInfo ici = {0};
    ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
    if (mutable)
       ici.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
    ici.imageType = VK_IMAGE_TYPE_2D;
-   ici.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-   ici.extent.width = 100;
-   ici.extent.height = 100;
+   ici.format = format;
+   ici.extent.width = width;
+   ici.extent.height = height;
    ici.extent.depth = 1;
    ici.mipLevels = 1;
    ici.arrayLayers = 1;
@@ -200,13 +201,14 @@ create_image(VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
 }
 
 static VkImage
-create_image_bind(VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
+create_image_bind(VkImageUsageFlags usage, VkFormat format, VkSampleCountFlags samples,
+                  unsigned width, unsigned height, bool host, bool cached, bool mutable)
 {
-   VkImage image = create_image(usage, samples, mutable);
+   VkImage image = create_image(usage, format, samples, width, height, mutable);
    VkMemoryRequirements reqs = {0};
    VK(GetImageMemoryRequirements)(dev->dev, image, &reqs);
    unsigned alignment = MAX2(reqs.alignment, 256);
-   VkDeviceMemory mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, false);
+   VkDeviceMemory mem = create_memory(reqs.size, reqs.memoryTypeBits, alignment, host, cached);
    VkResult result = VK(BindImageMemory)(dev->dev, image, mem, 0);
    VK_CHECK("BindImageMemory", result);
    return image;
@@ -215,7 +217,7 @@ create_image_bind(VkImageUsageFlags usage, VkSampleCountFlags samples, bool muta
 static VkImageView
 create_image_helper(VkImage *ret_image, VkImageUsageFlags usage, VkSampleCountFlags samples, bool mutable)
 {
-   VkImage image = create_image_bind(usage, samples, mutable);
+   VkImage image = create_image_bind(usage, VK_FORMAT_R32G32B32A32_SFLOAT, samples, 100, 100, false, false, mutable);
    VkImageViewCreateInfo ivci = {0};
    ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    ivci.image = image;
@@ -233,6 +235,32 @@ create_image_helper(VkImage *ret_image, VkImageUsageFlags usage, VkSampleCountFl
    if (ret_image)
       *ret_image = image;
    return image_view;
+}
+
+static uint64_t hic_cached_size = 0;
+static VkDeviceMemory hic_cached_mem;
+static uint64_t hic_uncached_size = 0;
+static VkDeviceMemory hic_uncached_mem;
+
+VkImage
+create_hic_image(VkFormat format, unsigned width, unsigned height, bool cached)
+{
+   VkImage image = create_image(VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT, format, VK_SAMPLE_COUNT_1_BIT, width, height, false);
+   VkMemoryRequirements reqs = {0};
+   VK(GetImageMemoryRequirements)(dev->dev, image, &reqs);
+   unsigned alignment = MAX2(reqs.alignment, 256);
+   uint64_t *size = cached ? &hic_cached_size : &hic_uncached_size;
+   VkDeviceMemory *memory = cached ? &hic_cached_mem : &hic_uncached_mem;
+   if (reqs.size > *size) {
+      if (*size > 0) {
+         VK(FreeMemory)(dev->dev, *memory, NULL);
+      }
+      *memory = create_memory(reqs.size, reqs.memoryTypeBits, alignment, true, cached);
+      *size = reqs.size;
+   }
+   VkResult result = VK(BindImageMemory)(dev->dev, image, *memory, 0);
+   VK_CHECK("BindImageMemory", result);
+   return image;
 }
 
 VkImageView

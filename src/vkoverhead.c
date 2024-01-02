@@ -236,6 +236,35 @@ static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
 static uint64_t count = 0;
 
+/* current host image copy format */
+static VkFormat hic_format = VK_FORMAT_UNDEFINED;
+
+static VkImage hic_cached_image;
+static VkImage hic_uncached_image;
+
+/* HIC formats to test */
+static const VkFormat hic_formats[] = {
+   VK_FORMAT_R8_UINT,
+   VK_FORMAT_R16_UINT,
+   VK_FORMAT_R32_UINT,
+   VK_FORMAT_R32G32_UINT,
+   VK_FORMAT_R32G32B32A32_UINT,
+};
+
+static const char *hic_format_names[] = {
+   "r8",
+   "r16",
+   "r32",
+   "r32g32",
+   "r32g32b32a32",
+};
+
+#define HIC_WIDTH 1024
+#define HIC_HEIGHT 1024
+
+/* data to upload/download */
+static char *hic_data;
+
 static bool is_submit = false;
 static bool is_dynamic = false;
 static bool submit_init = false;
@@ -254,6 +283,7 @@ static bool draw_only = false;
 static bool descriptor_only = false;
 static bool misc_only = false;
 static bool output_only = false;
+static bool hic_only = false;
 
 static VkDeviceAddress descriptor_buffer;
 
@@ -324,6 +354,30 @@ static bool
 check_zerovram(void)
 {
    return dev->info.have_EXT_memory_budget;
+}
+
+static bool
+check_host_image_copy(void)
+{
+   if (!dev->info.have_EXT_host_image_copy)
+      return false;
+
+   /* check that the format can be used for host image transfers */
+   VkPhysicalDeviceImageFormatInfo2 ifi = {0};
+   ifi.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2;
+   ifi.format = hic_format;
+   ifi.type = VK_IMAGE_TYPE_2D;
+   ifi.tiling = VK_IMAGE_TILING_OPTIMAL;
+   ifi.usage = VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT;
+   ifi.flags = 0;
+
+   VkImageFormatProperties2 ifp = {0};
+   ifp.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
+   
+   if (VK(GetPhysicalDeviceImageFormatProperties2)(dev->pdev, &ifi, &ifp) != VK_SUCCESS)
+      return false;
+
+   return true;
 }
 
 static void
@@ -2184,6 +2238,104 @@ misc_zerovram_manual(unsigned iterations)
    }
 }
 
+static void
+hic_upload(unsigned iterations, bool cached, bool use_memcpy)
+{
+   size_t size;
+
+   VkMemoryToImageCopyEXT region = {0};
+   region.sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT;
+   region.pHostPointer = hic_data;
+   region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+   region.imageSubresource.layerCount = 1;
+   region.imageExtent = (VkExtent3D) { HIC_WIDTH, HIC_HEIGHT, 1 };
+
+   VkCopyMemoryToImageInfoEXT info = {0};
+   info.sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT;
+   info.flags = use_memcpy ? VK_HOST_IMAGE_COPY_MEMCPY_EXT : 0;
+   info.dstImage = cached ? hic_cached_image : hic_uncached_image;
+   info.dstImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+   info.regionCount = 1;
+   info.pRegions = &region;
+
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(CopyMemoryToImageEXT)(dev->dev, &info);
+   }
+}
+
+static void
+hic_download(unsigned iterations, bool cached, bool use_memcpy)
+{
+   size_t size;
+
+   VkImageToMemoryCopyEXT region = {0};
+   region.sType = VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT;
+   region.pHostPointer = hic_data;
+   region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+   region.imageSubresource.layerCount = 1;
+   region.imageExtent = (VkExtent3D) { HIC_WIDTH, HIC_HEIGHT, 1 };
+
+   VkCopyImageToMemoryInfoEXT info = {0};
+   info.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT;
+   info.flags = use_memcpy ? VK_HOST_IMAGE_COPY_MEMCPY_EXT : 0;
+   info.srcImage = cached ? hic_cached_image : hic_uncached_image;
+   info.srcImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+   info.regionCount = 1;
+   info.pRegions = &region;
+
+   for (unsigned i = 0; i < iterations; i++) {
+      VK(CopyImageToMemoryEXT)(dev->dev, &info);
+   }
+}
+
+static void
+hic_upload_memcpy(unsigned iterations)
+{
+   hic_upload(iterations, true, true);
+}
+
+static void
+hic_upload_tiled(unsigned iterations)
+{
+   hic_upload(iterations, true, false);
+}
+
+static void
+hic_upload_memcpy_uncached(unsigned iterations)
+{
+   hic_upload(iterations, false, true);
+}
+
+static void
+hic_upload_tiled_uncached(unsigned iterations)
+{
+   hic_upload(iterations, false, false);
+}
+
+static void
+hic_download_memcpy(unsigned iterations)
+{
+   hic_download(iterations, true, true);
+}
+
+static void
+hic_download_tiled(unsigned iterations)
+{
+   hic_download(iterations, true, false);
+}
+
+static void
+hic_download_memcpy_uncached(unsigned iterations)
+{
+   hic_download(iterations, false, true);
+}
+
+static void
+hic_download_tiled_uncached(unsigned iterations)
+{
+   hic_download(iterations, false, false);
+}
+
 
 struct perf_case {
    const char *name;
@@ -2372,7 +2524,19 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_zerovram_manual, check_zerovram),
 };
 
-#define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
+#define CASE_HIC(name) {#name, name, NULL, check_host_image_copy}
+static struct perf_case cases_hic[] = {
+   CASE_HIC(hic_upload_memcpy),
+   CASE_HIC(hic_upload_tiled),
+   CASE_HIC(hic_upload_memcpy_uncached),
+   CASE_HIC(hic_upload_tiled_uncached),
+   CASE_HIC(hic_download_memcpy),
+   CASE_HIC(hic_download_tiled),
+   CASE_HIC(hic_download_memcpy_uncached),
+   CASE_HIC(hic_download_tiled_uncached),
+};
+
+#define TOTAL_CASES (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc) + ARRAY_SIZE(cases_hic) * ARRAY_SIZE(hic_formats))
 
 static void
 set_image_layout(VkImage image, VkImageLayout ly)
@@ -2837,6 +3001,8 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    cleanup_func = NULL;
    is_submit = false;
    is_zerovram = false;
+   bool is_hic = false, is_new_hic_format = false;
+   const char *name_prefix = NULL;
    if (case_idx < ARRAY_SIZE(cases_draw)) {
       p = &cases_draw[case_idx];
    } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
@@ -2844,9 +3010,27 @@ perf_run(unsigned case_idx, double base_rate, double duration)
       is_submit = true;
    } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)) {
       p = &cases_descriptor[case_idx - ARRAY_SIZE(cases_draw) - ARRAY_SIZE(cases_submit)];
-   } else {
+   } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc)) {
       p = &cases_misc[case_idx - ARRAY_SIZE(cases_draw) - ARRAY_SIZE(cases_submit) - ARRAY_SIZE(cases_descriptor)];
+   } else {
+      unsigned offset = case_idx - ARRAY_SIZE(cases_draw) - ARRAY_SIZE(cases_submit) - ARRAY_SIZE(cases_descriptor) - ARRAY_SIZE(cases_misc);
+      p = &cases_hic[offset % ARRAY_SIZE(cases_hic)];
+      VkFormat format = hic_formats[offset / ARRAY_SIZE(cases_hic)];
+      is_hic = true;
+      if (format != hic_format) {
+         hic_format = format;
+         is_new_hic_format = true;
+      }
+      name_prefix = hic_format_names[offset / ARRAY_SIZE(cases_hic)];
    }
+
+   char name[100];
+   assert(strlen(p->name) + (name_prefix ? (strlen(name_prefix) + 1) : 0) < 100);
+   if (name_prefix)
+      sprintf(name, "%s_%s", name_prefix, p->name);
+   else
+      strcpy(name, p->name);
+
    bool was_descriptor_buffer = is_descriptor_buffer;
    unsigned name_len = strlen(p->name);
    is_descriptor_buffer = !strcmp(&p->name[name_len - 1 - 3], "_db") || strstr(p->name, "_db_");
@@ -2867,6 +3051,32 @@ perf_run(unsigned case_idx, double base_rate, double duration)
          descriptor_buffer = sampler_db_bda[0];
       else if (strstr(p->name, "image"))
          descriptor_buffer = image_db_bda[0];
+   }
+   if (is_hic && !unsupported) {
+      if (is_new_hic_format) {
+         hic_cached_image = create_hic_image(hic_format, HIC_WIDTH, HIC_HEIGHT, true);
+         hic_uncached_image = create_hic_image(hic_format, HIC_WIDTH, HIC_HEIGHT, false);
+
+         VkSubresourceHostMemcpySizeEXT memcpy_size = {0};
+         memcpy_size.sType = VK_STRUCTURE_TYPE_SUBRESOURCE_HOST_MEMCPY_SIZE_EXT;
+
+         VkSubresourceLayout2KHR layout = {0};
+         layout.sType = VK_STRUCTURE_TYPE_SUBRESOURCE_LAYOUT_2_KHR;
+         layout.pNext = &memcpy_size;
+
+         VkImageSubresource2KHR subresource = {0};
+         subresource.sType = VK_STRUCTURE_TYPE_IMAGE_SUBRESOURCE_2_KHR;
+         subresource.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+         VK(GetImageSubresourceLayout2KHR)(dev->dev, hic_cached_image, &subresource, &layout);
+
+         if (hic_data)
+            free(hic_data);
+         hic_data = malloc(memcpy_size.size);
+
+         for (unsigned i = 0; i < memcpy_size.size; i++)
+            hic_data[i] = rand();
+      }
    }
    if (strstr(p->name, "zerovram")) {
       if (!fixed_iteration_count) {
@@ -2905,9 +3115,9 @@ perf_run(unsigned case_idx, double base_rate, double duration)
 
    char space[50];
    memset(space, ' ', sizeof(space));
-   space[sizeof(space) - strlen(p->name)] = 0;
+   space[sizeof(space) - strlen(name)] = 0;
    char buf[128];
-   uint64_t r = is_submit || is_zerovram ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
+   uint64_t r = is_submit || is_zerovram || is_hic ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
    snprintf(buf, sizeof(buf), "%"PRIu64, r);
    if (unsupported) {
       char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
@@ -2919,12 +3129,12 @@ perf_run(unsigned case_idx, double base_rate, double duration)
          name[i] = 0;
          break;
       }
-      print_table_row_unsupported(csv, color, case_idx, p->name, name);
+      print_table_row_unsupported(csv, color, case_idx, name, name);
    } else {
       if (output_only)
          printf("%5"PRIu64"\n", r);
       else
-         print_table_row(csv, color, case_idx, p->name, r, ratio_color, 100 * ratio);
+         print_table_row(csv, color, case_idx, name, r, ratio_color, 100 * ratio);
    }
    return rate;
 }
@@ -2985,8 +3195,12 @@ parse_args(int argc, const char **argv)
                draw_only = true;
             else if (test_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))
                submit_only = true;
-            else
+            else if (test_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))
                descriptor_only = true;
+            else if (test_no < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))
+               misc_only = true;
+            else
+               hic_only = true;
          } else if (next_arg_is_start_no) {
             start_no = val;
          }
@@ -3036,6 +3250,8 @@ parse_args(int argc, const char **argv)
          descriptor_only = true;
       else if (!strcmp(arg, "misc-only"))
          misc_only = true;
+      else if (!strcmp(arg, "hic-only"))
+         hic_only = true;
       else if (!strcmp(arg, "list")) {
          for (unsigned i = 0; i < ARRAY_SIZE(cases_draw); i++)
             printf(" %3u, %s\n", i, cases_draw[i].name);
@@ -3047,7 +3263,7 @@ parse_args(int argc, const char **argv)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
-         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-fixed ITERATIONS] [-csv]\n");
+         fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-hic-only] [-fixed ITERATIONS] [-csv]\n");
          exit(0);
       }
    }
@@ -3367,22 +3583,24 @@ main(int argc, char *argv[])
              MAX2((int)strlen(dev->info.driver_props.driverInfo), 11),
              dev->info.driver_props.driverInfo );
    }
-   if (!submit_only && !descriptor_only && !misc_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw)) {
+   if (!submit_only && !descriptor_only && !misc_only && !hic_only && !output_only && start_no < (int)ARRAY_SIZE(cases_draw)) {
       print_table_header(csv, "#", "Draw Tests", "1000op/s", "% relative to 'draw'");
    }
    double base_rate = 0;
    if (test_no > -1) {
       if (!output_only) {
-         if (!draw_only && !descriptor_only && !misc_only)
+         if (!draw_only && !descriptor_only && !misc_only && !hic_only)
             print_table_header(csv, "#", "Submit Tests", "op/s", "% relative to 'submit_noop");
-         if (!draw_only && !submit_only && !descriptor_only)
+         if (!draw_only && !submit_only && !misc_only && !hic_only)
             print_table_header(csv, "#", "Descriptor Tests", "1000op/s", "% relative to 'descriptor_noop'");
-         if (!draw_only && !submit_only && !misc_only)
+         if (!draw_only && !submit_only && !descriptor_only && !hic_only)
             print_table_header(csv, "#", "Misc Tests", "1000op/s (besides zerovram)", "% (ignore)");
+         if (!draw_only && !submit_only && !descriptor_only && !misc_only)
+            print_table_header(csv, "#", "Host Image Copy Tests", "op/s", "% relative to 'fmt_upload_memcpy'");
       }
       perf_run(test_no, base_rate, duration);
    } else {
-      if (!submit_only && !descriptor_only && !misc_only && start_no < (int)ARRAY_SIZE(cases_draw)) {
+      if (!submit_only && !descriptor_only && !misc_only && !hic_only && start_no < (int)ARRAY_SIZE(cases_draw)) {
          base_rate = perf_run(0, 0, duration);
          unsigned start = start_no == -1 ? 1 : start_no;
          for (unsigned i = start; i < ARRAY_SIZE(cases_draw); i++)
@@ -3390,7 +3608,7 @@ main(int argc, char *argv[])
          if (start != 1)
             start_no = -1;
       }
-      if (!draw_only && !descriptor_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))) {
+      if (!draw_only && !descriptor_only && !misc_only && !hic_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit))) {
          if (!output_only)
             print_table_header(csv, "#", "Submit Tests", "op/s", "% relative to 'submit_noop");
          base_rate = perf_run(ARRAY_SIZE(cases_draw), 0, duration);
@@ -3405,7 +3623,7 @@ main(int argc, char *argv[])
          if (start != 1)
             start_no = -1;
       }
-      if (!draw_only && !submit_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))) {
+      if (!draw_only && !submit_only && !misc_only && !hic_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor))) {
          if (!output_only)
             print_table_header(csv, "#", "Descriptor Tests", "1000op/s", "% relative to 'descriptor_noop'");
          base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit), 0, duration);
@@ -3415,13 +3633,28 @@ main(int argc, char *argv[])
          if (start != 1)
             start_no = -1;
       }
-      if (!draw_only && !submit_only && !descriptor_only) {
+      if (!draw_only && !submit_only && !descriptor_only && !hic_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc))) {
          if (!output_only)
             print_table_header(csv, "#", "Misc Tests", "1000op/s (besides zerovram)", "% (ignore)");
          base_rate = 0;
          unsigned start = start_no == -1 ? 0 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)));
          for (unsigned i = start; i < ARRAY_SIZE(cases_misc); i++)
             perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + i, base_rate, duration);
+         if (start != 0)
+            start_no = -1;
+      }
+      if (!draw_only && !submit_only && !descriptor_only && !misc_only && start_no < (int)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc) + ARRAY_SIZE(cases_hic) * ARRAY_SIZE(hic_formats))) {
+         if (!output_only)
+            print_table_header(csv, "#", "Host Image Copy Tests", "op/s", "% relative to 'fmt_upload_memcpy'");
+         unsigned start = start_no == -1 ? 0 : (start_no - (ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)));
+         base_rate = 0;
+         
+         for (unsigned i = start; i < ARRAY_SIZE(cases_hic) * ARRAY_SIZE(hic_formats); i++) {
+            if (i == start || i % ARRAY_SIZE(cases_hic) == 0) {
+               base_rate = perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc) + (i - i % ARRAY_SIZE(cases_hic)), 0, duration);
+            }
+            perf_run(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc) + i, base_rate, duration);
+         }
          if (start != 0)
             start_no = -1;
       }

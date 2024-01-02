@@ -265,6 +265,8 @@ EXTENSIONS = [
     Extension("VK_KHR_shader_terminate_invocation",
         alias="terminate",
         features=True),
+    Extension("VK_EXT_host_image_copy",
+        alias="host_image_copy"),
 ]
 
 # constructor: Versions(device_version(major, minor, patch), struct_version(major, minor))
