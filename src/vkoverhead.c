@@ -3027,7 +3027,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    char name[100];
    assert(strlen(p->name) + (name_prefix ? (strlen(name_prefix) + 1) : 0) < 100);
    if (name_prefix)
-      sprintf(name, "%s_%s", name_prefix, p->name);
+      snprintf(name, sizeof(name), "%s_%s", name_prefix, p->name);
    else
       strcpy(name, p->name);
 
