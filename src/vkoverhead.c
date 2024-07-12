@@ -3120,16 +3120,16 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    uint64_t r = is_submit || is_zerovram || is_hic ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
    snprintf(buf, sizeof(buf), "%"PRIu64, r);
    if (unsupported) {
-      char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
-      memcpy(name, dev->info.props.deviceName, sizeof(dev->info.props.deviceName));
+      char device_name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+      memcpy(device_name, dev->info.props.deviceName, sizeof(dev->info.props.deviceName));
       for (unsigned i = 0; i < sizeof(dev->info.props.deviceName); i++) {
-         if ((name[i] >= 'A' && name[i] <= 'Z') ||
-             (name[i] >= 'a' && name[i] <= 'z'))
+         if ((device_name[i] >= 'A' && device_name[i] <= 'Z') ||
+             (device_name[i] >= 'a' && device_name[i] <= 'z'))
             continue;
-         name[i] = 0;
+         device_name[i] = 0;
          break;
       }
-      print_table_row_unsupported(csv, color, case_idx, name, name);
+      print_table_row_unsupported(csv, color, case_idx, name, device_name);
    } else {
       if (output_only)
          printf("%5"PRIu64"\n", r);
