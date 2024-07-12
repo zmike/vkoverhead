@@ -2241,8 +2241,6 @@ misc_zerovram_manual(unsigned iterations)
 static void
 hic_upload(unsigned iterations, bool cached, bool use_memcpy)
 {
-   size_t size;
-
    VkMemoryToImageCopyEXT region = {0};
    region.sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT;
    region.pHostPointer = hic_data;
@@ -2266,8 +2264,6 @@ hic_upload(unsigned iterations, bool cached, bool use_memcpy)
 static void
 hic_download(unsigned iterations, bool cached, bool use_memcpy)
 {
-   size_t size;
-
    VkImageToMemoryCopyEXT region = {0};
    region.sType = VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT;
    region.pHostPointer = hic_data;
