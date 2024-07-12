@@ -3002,7 +3002,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    is_submit = false;
    is_zerovram = false;
    bool is_hic = false, is_new_hic_format = false;
-   const char *name_prefix = NULL;
+   const char *name_suffix = NULL;
    if (case_idx < ARRAY_SIZE(cases_draw)) {
       p = &cases_draw[case_idx];
    } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
@@ -3021,13 +3021,13 @@ perf_run(unsigned case_idx, double base_rate, double duration)
          hic_format = format;
          is_new_hic_format = true;
       }
-      name_prefix = hic_format_names[offset / ARRAY_SIZE(cases_hic)];
+      name_suffix = hic_format_names[offset / ARRAY_SIZE(cases_hic)];
    }
 
    char name[100];
-   assert(strlen(p->name) + (name_prefix ? (strlen(name_prefix) + 1) : 0) < 100);
-   if (name_prefix)
-      snprintf(name, sizeof(name), "%s_%s", name_prefix, p->name);
+   assert(strlen(p->name) + (name_suffix ? (strlen(name_suffix) + 1) : 0) < 100);
+   if (name_suffix)
+      snprintf(name, sizeof(name), "%s_%s", p->name, name_suffix);
    else
       strcpy(name, p->name);
 
@@ -3261,6 +3261,11 @@ parse_args(int argc, const char **argv)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)), cases_descriptor[i].name);
          for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
             printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
+         for (unsigned i = 0; i < ARRAY_SIZE(hic_format_names); i++) {
+            const char *format = hic_format_names[i];
+            for (unsigned j = 0; j < ARRAY_SIZE(cases_hic); j++)
+               printf(" %3u, %s_%s\n", i * (unsigned)ARRAY_SIZE(cases_hic) + j + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc)), cases_hic[j].name, format);
+         }
          exit(0);
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
          fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-hic-only] [-fixed ITERATIONS] [-csv]\n");
