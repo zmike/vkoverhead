@@ -3175,8 +3175,60 @@ init_dyn_render(VkRenderingInfo *info)
 }
 
 static void
+print_list(void)
+{
+   const bool is_testset_unrestricted = !submit_only && !draw_only && !descriptor_only && !misc_only && !hic_only;
+   int test_idx = 0;
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_draw); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || draw_only)
+         printf(" %3u, %s\n", i, cases_draw[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_submit); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || submit_only)
+         printf(" %3u, %s\n", test_idx, cases_submit[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_descriptor); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || descriptor_only)
+         printf(" %3u, %s\n", test_idx, cases_descriptor[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || misc_only)
+         printf(" %3u, %s\n", test_idx, cases_misc[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(hic_format_names); i++) {
+      const char *format = hic_format_names[i];
+      for (unsigned j = 0; j < ARRAY_SIZE(cases_hic); j++, test_idx++) {
+         if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+            continue;
+
+         if (is_testset_unrestricted || hic_only)
+            printf(" %3u, %s_%s\n", test_idx, cases_hic[j].name, format);
+      }
+   }
+}
+
+static void
 parse_args(int argc, const char **argv)
 {
+   bool should_print_list = false;
+
    bool next_arg_is_test_no = false;
    bool next_arg_is_start_no = false;
    bool next_arg_is_duration = false;
@@ -3253,24 +3305,16 @@ parse_args(int argc, const char **argv)
       else if (!strcmp(arg, "hic-only"))
          hic_only = true;
       else if (!strcmp(arg, "list")) {
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_draw); i++)
-            printf(" %3u, %s\n", i, cases_draw[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_submit); i++)
-            printf(" %3u, %s\n", i + (unsigned)ARRAY_SIZE(cases_draw), cases_submit[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_descriptor); i++)
-            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)), cases_descriptor[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
-            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(hic_format_names); i++) {
-            const char *format = hic_format_names[i];
-            for (unsigned j = 0; j < ARRAY_SIZE(cases_hic); j++)
-               printf(" %3u, %s_%s\n", i * (unsigned)ARRAY_SIZE(cases_hic) + j + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor) + ARRAY_SIZE(cases_misc)), cases_hic[j].name, format);
-         }
-         exit(0);
+         should_print_list = true;
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
          fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-hic-only] [-fixed ITERATIONS] [-csv]\n");
          exit(0);
       }
+   }
+
+   if (should_print_list) {
+      print_list();
+      exit(0);
    }
 
    if (fixed_iteration_count != 0 && test_no == -1 && start_no == -1) {
