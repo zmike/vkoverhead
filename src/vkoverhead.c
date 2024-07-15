@@ -2241,8 +2241,6 @@ misc_zerovram_manual(unsigned iterations)
 static void
 hic_upload(unsigned iterations, bool cached, bool use_memcpy)
 {
-   size_t size;
-
    VkMemoryToImageCopyEXT region = {0};
    region.sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT;
    region.pHostPointer = hic_data;
@@ -2266,8 +2264,6 @@ hic_upload(unsigned iterations, bool cached, bool use_memcpy)
 static void
 hic_download(unsigned iterations, bool cached, bool use_memcpy)
 {
-   size_t size;
-
    VkImageToMemoryCopyEXT region = {0};
    region.sType = VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT;
    region.pHostPointer = hic_data;
@@ -3002,7 +2998,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    is_submit = false;
    is_zerovram = false;
    bool is_hic = false, is_new_hic_format = false;
-   const char *name_prefix = NULL;
+   const char *name_suffix = NULL;
    if (case_idx < ARRAY_SIZE(cases_draw)) {
       p = &cases_draw[case_idx];
    } else if (case_idx < ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)) {
@@ -3021,13 +3017,13 @@ perf_run(unsigned case_idx, double base_rate, double duration)
          hic_format = format;
          is_new_hic_format = true;
       }
-      name_prefix = hic_format_names[offset / ARRAY_SIZE(cases_hic)];
+      name_suffix = hic_format_names[offset / ARRAY_SIZE(cases_hic)];
    }
 
    char name[100];
-   assert(strlen(p->name) + (name_prefix ? (strlen(name_prefix) + 1) : 0) < 100);
-   if (name_prefix)
-      snprintf(name, sizeof(name), "%s_%s", name_prefix, p->name);
+   assert(strlen(p->name) + (name_suffix ? (strlen(name_suffix) + 1) : 0) < 100);
+   if (name_suffix)
+      snprintf(name, sizeof(name), "%s_%s", p->name, name_suffix);
    else
       strcpy(name, p->name);
 
@@ -3120,16 +3116,16 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    uint64_t r = is_submit || is_zerovram || is_hic ? (uint64_t)rate : (uint64_t)(rate / 1000lu);
    snprintf(buf, sizeof(buf), "%"PRIu64, r);
    if (unsupported) {
-      char name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
-      memcpy(name, dev->info.props.deviceName, sizeof(dev->info.props.deviceName));
+      char device_name[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+      memcpy(device_name, dev->info.props.deviceName, sizeof(dev->info.props.deviceName));
       for (unsigned i = 0; i < sizeof(dev->info.props.deviceName); i++) {
-         if ((name[i] >= 'A' && name[i] <= 'Z') ||
-             (name[i] >= 'a' && name[i] <= 'z'))
+         if ((device_name[i] >= 'A' && device_name[i] <= 'Z') ||
+             (device_name[i] >= 'a' && device_name[i] <= 'z'))
             continue;
-         name[i] = 0;
+         device_name[i] = 0;
          break;
       }
-      print_table_row_unsupported(csv, color, case_idx, name, name);
+      print_table_row_unsupported(csv, color, case_idx, name, device_name);
    } else {
       if (output_only)
          printf("%5"PRIu64"\n", r);
@@ -3175,8 +3171,60 @@ init_dyn_render(VkRenderingInfo *info)
 }
 
 static void
+print_list(void)
+{
+   const bool is_testset_unrestricted = !submit_only && !draw_only && !descriptor_only && !misc_only && !hic_only;
+   int test_idx = 0;
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_draw); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || draw_only)
+         printf(" %3u, %s\n", i, cases_draw[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_submit); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || submit_only)
+         printf(" %3u, %s\n", test_idx, cases_submit[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_descriptor); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || descriptor_only)
+         printf(" %3u, %s\n", test_idx, cases_descriptor[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++, test_idx++) {
+      if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+         continue;
+
+      if (is_testset_unrestricted || misc_only)
+         printf(" %3u, %s\n", test_idx, cases_misc[i].name);
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(hic_format_names); i++) {
+      const char *format = hic_format_names[i];
+      for (unsigned j = 0; j < ARRAY_SIZE(cases_hic); j++, test_idx++) {
+         if (test_idx < start_no || (test_no != -1 && test_idx != test_no))
+            continue;
+
+         if (is_testset_unrestricted || hic_only)
+            printf(" %3u, %s_%s\n", test_idx, cases_hic[j].name, format);
+      }
+   }
+}
+
+static void
 parse_args(int argc, const char **argv)
 {
+   bool should_print_list = false;
+
    bool next_arg_is_test_no = false;
    bool next_arg_is_start_no = false;
    bool next_arg_is_duration = false;
@@ -3253,19 +3301,16 @@ parse_args(int argc, const char **argv)
       else if (!strcmp(arg, "hic-only"))
          hic_only = true;
       else if (!strcmp(arg, "list")) {
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_draw); i++)
-            printf(" %3u, %s\n", i, cases_draw[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_submit); i++)
-            printf(" %3u, %s\n", i + (unsigned)ARRAY_SIZE(cases_draw), cases_submit[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_descriptor); i++)
-            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit)), cases_descriptor[i].name);
-         for (unsigned i = 0; i < ARRAY_SIZE(cases_misc); i++)
-            printf(" %3u, %s\n", i + (unsigned)(ARRAY_SIZE(cases_draw) + ARRAY_SIZE(cases_submit) + ARRAY_SIZE(cases_descriptor)), cases_misc[i].name);
-         exit(0);
+         should_print_list = true;
       } else if (!strcmp(arg, "help") || !strcmp(arg, "h")) {
          fprintf(stderr, "vkoverhead [-list] [-test/start TESTNUM] [-duration SECONDS] [-nocolor] [-output-only] [-draw-only] [-submit-only] [-descriptor-only] [-misc-only] [-hic-only] [-fixed ITERATIONS] [-csv]\n");
          exit(0);
       }
+   }
+
+   if (should_print_list) {
+      print_list();
+      exit(0);
    }
 
    if (fixed_iteration_count != 0 && test_no == -1 && start_no == -1) {
