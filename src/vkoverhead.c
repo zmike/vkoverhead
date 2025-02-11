@@ -138,6 +138,7 @@ static VkDescriptorUpdateTemplateKHR template_image_many_push;
 static VkPipeline pipelines_basic[NUM_PIPELINE_VARIANTS];
 static VkPipeline pipelines_vattrib[NUM_PIPELINE_VARIANTS];
 static VkPipeline pipelines_dyn[NUM_PIPELINE_VARIANTS];
+static VkPipeline pipeline_basic_dynamic;
 static VkPipeline pipeline_vattrib_dynamic;
 static VkPipeline pipeline_multirt;
 static VkPipeline pipeline_multrt_dyn;
@@ -760,6 +761,18 @@ static void
 draw_vbo_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_vbo_change, iterations, 1);
+   begin_rp();
+   VkDeviceSize offset[] = {0, 16};
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdBindVertexBuffers)(cmdbuf, 0, 1, &vbo[i & 1], &offset[i & 1]);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
+}
+
+static void
+draw_vbo_change_dynamic(unsigned iterations)
+{
+   iterations = filter_overflow(draw_vbo_change_dynamic, iterations, 1);
    begin_rp();
    VkDeviceSize offset[] = {0, 16};
    for (unsigned i = 0; i < iterations; i++, count++) {
@@ -2341,6 +2354,7 @@ struct perf_case {
 };
 
 #define CASE_BASIC(name, ...) {#name, name, pipelines_basic, __VA_ARGS__}
+#define CASE_BASIC_DYN(name, ...) {#name, name, &pipeline_basic_dynamic, __VA_ARGS__}
 #define CASE_DYN_BASIC(name, ...) {#name, name, pipelines_dyn, __VA_ARGS__}
 #define CASE_MULTIRT(name, ...) {#name, name, &pipeline_multirt, __VA_ARGS__}
 #define CASE_DYN_MULTIRT(name, ...) {#name, name, &pipeline_multrt_dyn, __VA_ARGS__}
@@ -2378,6 +2392,7 @@ static struct perf_case cases_draw[] = {
    CASE_MULTIRT(draw_multirt_begin_end_dontcare),
    CASE_DYN_MULTIRT(draw_multirt_begin_end_dontcare_dynrender, check_dynamic_rendering),
    CASE_BASIC(draw_vbo_change),
+   CASE_BASIC_DYN(draw_vbo_change_dynamic, check_dynamic_vertex_input),
    CASE_BASIC(draw_1vattrib_change),
    CASE_VATTRIB(draw_16vattrib),
    CASE_VATTRIB(draw_16vattrib_16vbo_change),
@@ -3450,8 +3465,10 @@ main(int argc, char *argv[])
    if (check_dynamic_rendering())
       create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
    create_vattrib_pipelines(render_pass_clear, layout_basic, pipelines_vattrib);
-   if (check_dynamic_vertex_input())
+   if (check_dynamic_vertex_input()) {
       pipeline_vattrib_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
+      pipeline_basic_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
+   }
    pipeline_multirt = create_multirt_pipeline(render_pass_multirt_clear, layout_basic);
    if (check_dynamic_rendering())
       pipeline_multrt_dyn = create_multirt_pipeline(VK_NULL_HANDLE, layout_basic);

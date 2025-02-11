@@ -49,6 +49,7 @@ VkFramebuffer create_framebuffer(unsigned num_rts, VkRenderPass render_pass);
 VkPipelineLayout create_pipeline_layout(VkDescriptorSetLayout *desc_layouts, unsigned num_desc_layouts);
 void create_basic_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPipeline *pipelines);
 void create_vattrib_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPipeline *pipelines);
+VkPipeline create_basic_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layout, VkPipeline *pipelines);
 VkPipeline create_multirt_pipeline(VkRenderPass render_pass, VkPipelineLayout layout);
 VkPipeline create_ubo_pipeline(VkRenderPass render_pass, VkPipelineLayout layout, VkPipelineCreateFlags flags);
 VkPipeline create_sampler_pipeline(VkRenderPass render_pass, VkPipelineLayout layout);

@@ -250,6 +250,29 @@ create_basic_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPipe
 }
 
 VkPipeline
+create_basic_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layout, VkPipeline *pipelines)
+{
+   VkShaderModule modules[5] = {
+      create_shader_module(basic_vert_spirv, basic_vert_spirv_len),
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      create_shader_module(basic_frag_spirv, basic_frag_spirv_len),
+   };
+
+   VkVertexInputBindingDescription vbinding;
+   VkVertexInputAttributeDescription vattr;
+   VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
+   vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+   vertex_input_state.pVertexBindingDescriptions = &vbinding;
+   vertex_input_state.vertexBindingDescriptionCount = 1;
+   vertex_input_state.pVertexAttributeDescriptions = &vattr;
+   vertex_input_state.vertexAttributeDescriptionCount = 1;
+   generate_vattribs(&vbinding, &vattr, 1);
+   return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, true, NULL, 0);
+}
+
+VkPipeline
 create_multirt_pipeline(VkRenderPass render_pass, VkPipelineLayout layout)
 {
    VkShaderModule modules[5] = {
