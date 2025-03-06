@@ -3466,8 +3466,8 @@ main(int argc, char *argv[])
       create_basic_pipelines(VK_NULL_HANDLE, layout_basic, pipelines_dyn);
    create_vattrib_pipelines(render_pass_clear, layout_basic, pipelines_vattrib);
    if (check_dynamic_vertex_input()) {
-      pipeline_vattrib_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
-      pipeline_basic_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic);
+      pipeline_vattrib_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic, 16);
+      pipeline_basic_dynamic = create_vattrib_pipeline_dynamic(render_pass_clear, layout_basic, 1);
    }
    pipeline_multirt = create_multirt_pipeline(render_pass_multirt_clear, layout_basic);
    if (check_dynamic_rendering())

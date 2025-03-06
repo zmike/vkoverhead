@@ -480,10 +480,10 @@ create_vattrib_pipelines(VkRenderPass render_pass, VkPipelineLayout layout, VkPi
 }
 
 VkPipeline
-create_vattrib_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layout)
+create_vattrib_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layout, unsigned num_attrs)
 {
    VkShaderModule modules[5] = {
-      create_shader_module(vattrib_vert_spirv, vattrib_vert_spirv_len),
+      create_shader_module(num_attrs == 16 ? vattrib_vert_spirv : basic_vert_spirv, num_attrs == 16 ? vattrib_vert_spirv_len : basic_vert_spirv_len),
       VK_NULL_HANDLE,
       VK_NULL_HANDLE,
       VK_NULL_HANDLE,
@@ -495,10 +495,10 @@ create_vattrib_pipeline_dynamic(VkRenderPass render_pass, VkPipelineLayout layou
    VkPipelineVertexInputStateCreateInfo vertex_input_state = {0};
    vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
    vertex_input_state.pVertexBindingDescriptions = vbinding;
-   vertex_input_state.vertexBindingDescriptionCount = 16;
+   vertex_input_state.vertexBindingDescriptionCount = num_attrs;
    vertex_input_state.pVertexAttributeDescriptions = vattr;
-   vertex_input_state.vertexAttributeDescriptionCount = 16;
-   generate_vattribs(vbinding, vattr, 16);
+   vertex_input_state.vertexAttributeDescriptionCount = num_attrs;
+   generate_vattribs(vbinding, vattr, num_attrs);
 
    return create_pipeline(layout, render_pass, modules, &vertex_input_state, 1, true, NULL, 0);
 }
