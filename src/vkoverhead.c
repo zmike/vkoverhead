@@ -699,8 +699,13 @@ draw(unsigned iterations)
 {
    iterations = filter_overflow(draw, iterations, 1);
    begin_rp();
+   // Manually hoist the dispatch table load out of the loop
+   // Avoids a cache miss per loop iteration
+   // The compiler can't do this because it can't prove that the draw call
+   // doesn't alter the dispatch table
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++)
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
 }
 
 static void
@@ -710,8 +715,9 @@ draw_multi(unsigned iterations)
    render_pass = render_pass_dontcare;
    begin_rp();
    int32_t offset = 0;
+   PFN_vkCmdDrawMultiIndexedEXT vkCmdDrawMultiIndexedEXT = VK(CmdDrawMultiIndexedEXT);
    for (unsigned i = 0; i < iterations; i++, count += ARRAY_SIZE(draws_indexed)) {
-      VK(CmdDrawMultiIndexedEXT)(cmdbuf, ARRAY_SIZE(draws_indexed), draws_indexed, 1, 0, sizeof(VkMultiDrawIndexedInfoEXT), &offset);
+      vkCmdDrawMultiIndexedEXT(cmdbuf, ARRAY_SIZE(draws_indexed), draws_indexed, 1, 0, sizeof(VkMultiDrawIndexedInfoEXT), &offset);
    }
 }
 
@@ -720,8 +726,9 @@ draw_vertex(unsigned iterations)
 {
    iterations = filter_overflow(draw_vertex, iterations, 1);
    begin_rp();
+   PFN_vkCmdDraw vkCmdDraw = VK(CmdDraw);
    for (unsigned i = 0; i < iterations; i++, count++)
-      VK(CmdDraw)(cmdbuf, 3, 1, 0, 0);
+      vkCmdDraw(cmdbuf, 3, 1, 0, 0);
 }
 
 static void
@@ -729,8 +736,9 @@ draw_multi_vertex(unsigned iterations)
 {
    iterations = filter_overflow(draw_multi_vertex, iterations, ARRAY_SIZE(draws));
    begin_rp();
+   PFN_vkCmdDrawMultiEXT vkCmdDrawMultiEXT = VK(CmdDrawMultiEXT);
    for (unsigned i = 0; i < iterations; i++, count += ARRAY_SIZE(draws)) {
-      VK(CmdDrawMultiEXT)(cmdbuf, ARRAY_SIZE(draws), draws, 1, 0, sizeof(VkMultiDrawInfoEXT));
+      vkCmdDrawMultiEXT(cmdbuf, ARRAY_SIZE(draws), draws, 1, 0, sizeof(VkMultiDrawInfoEXT));
    }
 }
 
@@ -739,9 +747,11 @@ draw_index_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_index_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindIndexBuffer vkCmdBindIndexBuffer = VK(CmdBindIndexBuffer);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindIndexBuffer)(cmdbuf, index_bo[i & 1], 0, VK_INDEX_TYPE_UINT32);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindIndexBuffer(cmdbuf, index_bo[i & 1], 0, VK_INDEX_TYPE_UINT32);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -751,9 +761,11 @@ draw_index_offset_change(unsigned iterations)
    iterations = filter_overflow(draw_index_offset_change, iterations, 1);
    begin_rp();
    VkDeviceSize offsets[] = {0, 16};
+   PFN_vkCmdBindIndexBuffer vkCmdBindIndexBuffer = VK(CmdBindIndexBuffer);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindIndexBuffer)(cmdbuf, index_bo[0], offsets[i & 1], VK_INDEX_TYPE_UINT32);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindIndexBuffer(cmdbuf, index_bo[0], offsets[i & 1], VK_INDEX_TYPE_UINT32);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -763,9 +775,11 @@ draw_vbo_change(unsigned iterations)
    iterations = filter_overflow(draw_vbo_change, iterations, 1);
    begin_rp();
    VkDeviceSize offset[] = {0, 16};
+   PFN_vkCmdBindVertexBuffers vkCmdBindVertexBuffers = VK(CmdBindVertexBuffers);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindVertexBuffers)(cmdbuf, 0, 1, &vbo[i & 1], &offset[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindVertexBuffers(cmdbuf, 0, 1, &vbo[i & 1], &offset[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -785,9 +799,10 @@ static void
 draw_rp_begin_end(unsigned iterations)
 {
    iterations = filter_overflow(draw_rp_begin_end, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -796,9 +811,10 @@ static void
 draw_rp_begin_end_dontcare(unsigned iterations)
 {
    iterations = filter_overflow(draw_rp_begin_end_dontcare, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -807,9 +823,10 @@ static void
 draw_rp_begin_end_dynrender(unsigned iterations)
 {
    iterations = filter_overflow(draw_rp_begin_end_dynrender, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -818,9 +835,10 @@ static void
 draw_rp_begin_end_dontcare_dynrender(unsigned iterations)
 {
    iterations = filter_overflow(draw_rp_begin_end_dontcare_dynrender, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -831,17 +849,19 @@ draw_multirt(unsigned iterations)
    iterations = filter_overflow(draw_multirt, iterations, 1);
    render_pass = render_pass_multirt_dontcare;
    begin_rp();
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++)
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
 }
 
 static void
 draw_multirt_begin_end(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt_begin_end, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -851,17 +871,19 @@ draw_multirt_dynrender(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt_dynrender, iterations, 1);
    begin_rp();
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++)
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
 }
 
 static void
 draw_multirt_begin_end_dynrender(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt_begin_end_dynrender, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -870,9 +892,10 @@ static void
 draw_multirt_begin_end_dontcare(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt_begin_end_dontcare, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -881,9 +904,10 @@ static void
 draw_multirt_begin_end_dontcare_dynrender(unsigned iterations)
 {
    iterations = filter_overflow(draw_multirt_begin_end_dontcare_dynrender, iterations, 1);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       begin_rp();
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
       end_rp();
    }
 }
@@ -893,9 +917,11 @@ draw_1vattrib_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1vattrib_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindPipeline vkCmdBindPipeline = VK(CmdBindPipeline);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[i % NUM_PIPELINE_VARIANTS]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[i % NUM_PIPELINE_VARIANTS]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -904,8 +930,9 @@ draw_16vattrib(unsigned iterations)
 {
    iterations = filter_overflow(draw_16vattrib, iterations, 1);
    begin_rp();
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++)
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
 }
 
 static void
@@ -922,9 +949,11 @@ draw_16vattrib_16vbo_change(unsigned iterations)
          new_vbos[i][j] = vbo[rand() % ARRAY_SIZE(vbo)];
       }
    }
+   PFN_vkCmdBindVertexBuffers vkCmdBindVertexBuffers = VK(CmdBindVertexBuffers);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindVertexBuffers)(cmdbuf, 0, 16, new_vbos[i & 1], new_offsets[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindVertexBuffers(cmdbuf, 0, 16, new_vbos[i & 1], new_offsets[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -933,9 +962,11 @@ draw_16vattrib_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_16vattrib_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindPipeline vkCmdBindPipeline = VK(CmdBindPipeline);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[i % NUM_PIPELINE_VARIANTS]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[i % NUM_PIPELINE_VARIANTS]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -948,9 +979,11 @@ draw_16vattrib_change_dynamic(unsigned iterations)
    VkVertexInputAttributeDescription2EXT vattr[2][16];
    for (unsigned i = 0; i < 2; i++)
       generate_vattribs_dynamic(vbindings[i], vattr[i]);
+   PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT = VK(CmdSetVertexInputEXT);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdSetVertexInputEXT)(cmdbuf, 16, vbindings[i & 1], 16, vattr[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdSetVertexInputEXT(cmdbuf, 16, vbindings[i & 1], 16, vattr[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -975,13 +1008,16 @@ draw_16vattrib_change_gpl(unsigned iterations)
    draw_16vattrib_change_gpl_pci.layout = layout_basic;
    cleanup_func = reset_gpl;
    begin_rp();
+   PFN_vkCreateGraphicsPipelines vkCreateGraphicsPipelines = VK(CreateGraphicsPipelines);
+   PFN_vkCmdBindPipeline vkCmdBindPipeline = VK(CmdBindPipeline);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       libraries[1] = pipeline_gpl_vert[i & 1];
       VkPipeline pipeline;
-      VkResult result = VK(CreateGraphicsPipelines)(dev->dev, VK_NULL_HANDLE, 1, &draw_16vattrib_change_gpl_pci, NULL, &pipeline);
+      VkResult result = vkCreateGraphicsPipelines(dev->dev, VK_NULL_HANDLE, 1, &draw_16vattrib_change_gpl_pci, NULL, &pipeline);
       VK_CHECK("CreateGraphicsPipelines", result);
-      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
 #if VK_USE_64_BIT_PTR_DEFINES==1
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (int64_t*)pipeline;
 #else
@@ -1026,13 +1062,15 @@ draw_16vattrib_change_gpl_hashncache(unsigned iterations)
    vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
    vertex_input_state.vertexBindingDescriptionCount = 16;
    vertex_input_state.vertexAttributeDescriptionCount = 16;
+   PFN_vkCmdBindPipeline vkCmdBindPipeline = VK(CmdBindPipeline);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
       vertex_input_state.pVertexBindingDescriptions = gpl_vbinding[i & 1];
       vertex_input_state.pVertexAttributeDescriptions = gpl_vattr[i & 1];
       struct hash_entry *he = _mesa_hash_table_search(&gpl_pipeline_table, &vertex_input_state);
       VkPipeline pipeline = he->data;
-      VK(CmdBindPipeline)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1041,9 +1079,11 @@ draw_1ubo_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1ubo_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, &desc_set_basic[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_basic, 0, 1, &desc_set_basic[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1052,9 +1092,11 @@ draw_12ubo_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_12ubo_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ubo, 0, 1, &desc_set_ubo[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ubo, 0, 1, &desc_set_ubo[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1063,9 +1105,11 @@ draw_1ssbo_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1ssbo_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo, 0, 1, &desc_set_ssbo[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo, 0, 1, &desc_set_ssbo[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1074,9 +1118,11 @@ draw_8ssbo_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_8ssbo_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo_many, 0, 1, &desc_set_ssbo_many[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo_many, 0, 1, &desc_set_ssbo_many[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1085,9 +1131,11 @@ draw_1combined_sampler_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1combined_sampler_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler, 0, 1, &desc_set_combined_sampler[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler, 0, 1, &desc_set_combined_sampler[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1096,9 +1144,11 @@ draw_16combined_sampler_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_16combined_sampler_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler_many, 0, 1, &desc_set_combined_sampler_many[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler_many, 0, 1, &desc_set_combined_sampler_many[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1107,9 +1157,11 @@ draw_1texelbuffer_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1texelbuffer_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_tbo, 0, 1, &desc_set_tbo[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_tbo, 0, 1, &desc_set_tbo[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1118,9 +1170,11 @@ draw_16texelbuffer_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_16texelbuffer_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_tbo_many, 0, 1, &desc_set_tbo_many[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_tbo_many, 0, 1, &desc_set_tbo_many[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1129,9 +1183,11 @@ draw_1image_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1image_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image, 0, 1, &desc_set_image[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image, 0, 1, &desc_set_image[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1140,9 +1196,11 @@ draw_16image_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_16image_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image_many, 0, 1, &desc_set_image_many[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image_many, 0, 1, &desc_set_image_many[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1151,9 +1209,11 @@ draw_1imagebuffer_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_1imagebuffer_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ibo, 0, 1, &desc_set_ibo[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ibo, 0, 1, &desc_set_ibo[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1162,9 +1222,11 @@ draw_16imagebuffer_change(unsigned iterations)
 {
    iterations = filter_overflow(draw_16imagebuffer_change, iterations, 1);
    begin_rp();
+   PFN_vkCmdBindDescriptorSets vkCmdBindDescriptorSets = VK(CmdBindDescriptorSets);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdBindDescriptorSets)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ibo_many, 0, 1, &desc_set_ibo_many[i & 1], 0, NULL);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ibo_many, 0, 1, &desc_set_ibo_many[i & 1], 0, NULL);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1175,9 +1237,11 @@ draw_ubo_db_change(unsigned iterations)
    begin_rp();
    VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
    uint32_t zero = 0;
+   PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT = VK(CmdSetDescriptorBufferOffsetsEXT);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ubo_db, 0, 1, &zero, &offsets[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdSetDescriptorBufferOffsetsEXT(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ubo_db, 0, 1, &zero, &offsets[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1188,9 +1252,11 @@ draw_ssbo_db_change(unsigned iterations)
    begin_rp();
    VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
    uint32_t zero = 0;
+   PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT = VK(CmdSetDescriptorBufferOffsetsEXT);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo_many_db, 0, 1, &zero, &offsets[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdSetDescriptorBufferOffsetsEXT(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_ssbo_many_db, 0, 1, &zero, &offsets[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1201,9 +1267,11 @@ draw_combined_sampler_db_change(unsigned iterations)
    begin_rp();
    VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
    uint32_t zero = 0;
+   PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT = VK(CmdSetDescriptorBufferOffsetsEXT);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler_many_db, 0, 1, &zero, &offsets[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdSetDescriptorBufferOffsetsEXT(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_combined_sampler_many_db, 0, 1, &zero, &offsets[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1214,9 +1282,11 @@ draw_image_db_change(unsigned iterations)
    begin_rp();
    VkDeviceSize offsets[] = {0, DESCRIPTOR_BUFFER_SIZE / 2};
    uint32_t zero = 0;
+   PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT = VK(CmdSetDescriptorBufferOffsetsEXT);
+   PFN_vkCmdDrawIndexed vkCmdDrawIndexed = VK(CmdDrawIndexed);
    for (unsigned i = 0; i < iterations; i++, count++) {
-      VK(CmdSetDescriptorBufferOffsetsEXT)(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image_many_db, 0, 1, &zero, &offsets[i & 1]);
-      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+      vkCmdSetDescriptorBufferOffsetsEXT(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_image_many_db, 0, 1, &zero, &offsets[i & 1]);
+      vkCmdDrawIndexed(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
 
@@ -1253,8 +1323,9 @@ submit_50cmdbuf_50submit(unsigned iterations)
 static void
 descriptor_noop(unsigned iterations)
 {
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++)
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 0, NULL);
 }
 
 static void
@@ -1265,9 +1336,10 @@ descriptor_1ubo(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_basic[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pBufferInfo = dbi[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1279,9 +1351,10 @@ descriptor_12ubo(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
    wds.descriptorCount = MAX_UBOS;
    wds.dstSet = desc_set_ubo[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pBufferInfo = dbi[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1293,9 +1366,10 @@ descriptor_1ssbo(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_ssbo[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pBufferInfo = dbi_storage[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1307,9 +1381,10 @@ descriptor_8ssbo(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
    wds.descriptorCount = MAX_SSBOS;
    wds.dstSet = desc_set_ssbo_many[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pBufferInfo = dbi_storage[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1321,9 +1396,10 @@ descriptor_1combined_sampler(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_combined_sampler[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pImageInfo = dii[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1335,9 +1411,10 @@ descriptor_16combined_sampler(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
    wds.descriptorCount = MAX_SAMPLERS;
    wds.dstSet = desc_set_combined_sampler_many[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pImageInfo = dii[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1349,9 +1426,10 @@ descriptor_1sampled_image(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_sampled_image[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pImageInfo = dii[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1363,9 +1441,10 @@ descriptor_16sampled_image(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
    wds.descriptorCount = MAX_SAMPLERS;
    wds.dstSet = desc_set_sampled_image_many[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pImageInfo = dii[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1377,9 +1456,10 @@ descriptor_1image(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_image[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pImageInfo = dii_storage[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1391,9 +1471,10 @@ descriptor_16image(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
    wds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    wds.dstSet = desc_set_image_many[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pImageInfo = dii_storage[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1405,9 +1486,10 @@ descriptor_1texelbuffer(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_tbo[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pTexelBufferView = tbo_views[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1419,9 +1501,10 @@ descriptor_16texelbuffer(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
    wds.descriptorCount = MAX_SAMPLERS;
    wds.dstSet = desc_set_tbo_many[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pTexelBufferView = tbo_views[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1433,9 +1516,10 @@ descriptor_1imagebuffer(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
    wds.descriptorCount = 1;
    wds.dstSet = desc_set_ibo[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pTexelBufferView = ibo_views[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1447,9 +1531,10 @@ descriptor_16imagebuffer(unsigned iterations)
    wds.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
    wds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    wds.dstSet = desc_set_ibo_many[0];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
       wds.pTexelBufferView = ibo_views[i & 1];
-      VK(UpdateDescriptorSets)(dev->dev, 1, &wds, 0, NULL);
+      vkUpdateDescriptorSets(dev->dev, 1, &wds, 0, NULL);
    }
 }
 
@@ -1457,8 +1542,9 @@ descriptor_16imagebuffer(unsigned iterations)
 static void \
 descriptor_template_##NAME(unsigned iterations) \
 { \
+   PFN_vkUpdateDescriptorSetWithTemplate vkUpdateDescriptorSetWithTemplate = VK(UpdateDescriptorSetWithTemplate); \
    for (unsigned i = 0; i < iterations; i++) { \
-      VK(UpdateDescriptorSetWithTemplate)(dev->dev, desc_set_##SUFFIX[0], template_##SUFFIX, DATA[i & 1]); \
+      vkUpdateDescriptorSetWithTemplate(dev->dev, desc_set_##SUFFIX[0], template_##SUFFIX, DATA[i & 1]); \
    } \
 }
 
@@ -1484,8 +1570,9 @@ descriptor_template_##NAME##_push(unsigned iterations) \
    iterations = filter_overflow(descriptor_template_##NAME##_push, iterations, 1); \
    if (!cmdbuf_active) \
       begin_cmdbuf(); \
+   PFN_vkCmdPushDescriptorSetWithTemplateKHR vkCmdPushDescriptorSetWithTemplateKHR = VK(CmdPushDescriptorSetWithTemplateKHR); \
    for (unsigned i = 0; i < iterations; i++) { \
-      VK(CmdPushDescriptorSetWithTemplateKHR)(cmdbuf, template_##SUFFIX##_push, layout_##SUFFIX##_push, 0, DATA[i & 1]); \
+      vkCmdPushDescriptorSetWithTemplateKHR(cmdbuf, template_##SUFFIX##_push, layout_##SUFFIX##_push, 0, DATA[i & 1]); \
    } \
 }
 
@@ -1564,8 +1651,9 @@ descriptor_copy_1ubo(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_basic[0];
    cds.srcSet = desc_set_basic[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1577,8 +1665,9 @@ descriptor_copy_12ubo(unsigned iterations)
    cds.descriptorCount = MAX_UBOS;
    cds.dstSet = desc_set_ubo[0];
    cds.srcSet = desc_set_ubo[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1590,8 +1679,9 @@ descriptor_copy_1ssbo(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_ssbo[0];
    cds.srcSet = desc_set_ssbo[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1603,8 +1693,9 @@ descriptor_copy_8ssbo(unsigned iterations)
    cds.descriptorCount = MAX_SSBOS;
    cds.dstSet = desc_set_ssbo_many[0];
    cds.srcSet = desc_set_ssbo_many[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1616,8 +1707,9 @@ descriptor_copy_1combined_sampler(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_combined_sampler[0];
    cds.srcSet = desc_set_combined_sampler[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1629,8 +1721,9 @@ descriptor_copy_16combined_sampler(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_combined_sampler_many[0];
    cds.srcSet = desc_set_combined_sampler_many[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1642,8 +1735,9 @@ descriptor_copy_1sampled_image(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_sampled_image[0];
    cds.srcSet = desc_set_sampled_image[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1655,8 +1749,9 @@ descriptor_copy_16sampled_image(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_sampled_image_many[0];
    cds.srcSet = desc_set_sampled_image_many[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1668,8 +1763,9 @@ descriptor_copy_1image(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_image[0];
    cds.srcSet = desc_set_image[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1681,8 +1777,9 @@ descriptor_copy_16image(unsigned iterations)
    cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    cds.dstSet = desc_set_image_many[0];
    cds.srcSet = desc_set_image_many[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1694,8 +1791,9 @@ descriptor_copy_1texelbuffer(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_tbo[0];
    cds.srcSet = desc_set_tbo[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1707,8 +1805,9 @@ descriptor_copy_16texelbuffer(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_tbo_many[0];
    cds.srcSet = desc_set_tbo_many[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1720,8 +1819,9 @@ descriptor_copy_1imagebuffer(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_ibo[0];
    cds.srcSet = desc_set_ibo[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1733,8 +1833,9 @@ descriptor_copy_16imagebuffer(unsigned iterations)
    cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    cds.dstSet = desc_set_ibo_many[0];
    cds.srcSet = desc_set_ibo_many[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1746,8 +1847,9 @@ descriptor_copy_mutable_1ubo(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_basic_mutable[0];
    cds.srcSet = desc_set_basic_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1759,8 +1861,9 @@ descriptor_copy_mutable_12ubo(unsigned iterations)
    cds.descriptorCount = MAX_UBOS;
    cds.dstSet = desc_set_ubo_mutable[0];
    cds.srcSet = desc_set_ubo_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1772,8 +1875,9 @@ descriptor_copy_mutable_1ssbo(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_ssbo_mutable[0];
    cds.srcSet = desc_set_ssbo_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1785,8 +1889,9 @@ descriptor_copy_mutable_8ssbo(unsigned iterations)
    cds.descriptorCount = MAX_SSBOS;
    cds.dstSet = desc_set_ssbo_many_mutable[0];
    cds.srcSet = desc_set_ssbo_many_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1798,8 +1903,9 @@ descriptor_copy_mutable_1combined_sampler(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_combined_sampler_mutable[0];
    cds.srcSet = desc_set_combined_sampler_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1811,8 +1917,9 @@ descriptor_copy_mutable_16combined_sampler(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_combined_sampler_many_mutable[0];
    cds.srcSet = desc_set_combined_sampler_many_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1824,8 +1931,9 @@ descriptor_copy_mutable_1sampled_image(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_sampled_image_mutable[0];
    cds.srcSet = desc_set_sampled_image_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1837,8 +1945,9 @@ descriptor_copy_mutable_16sampled_image(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_sampled_image_many_mutable[0];
    cds.srcSet = desc_set_sampled_image_many_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1850,8 +1959,9 @@ descriptor_copy_mutable_1image(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_image_mutable[0];
    cds.srcSet = desc_set_image_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1863,8 +1973,9 @@ descriptor_copy_mutable_16image(unsigned iterations)
    cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    cds.dstSet = desc_set_image_many_mutable[0];
    cds.srcSet = desc_set_image_many_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1876,8 +1987,9 @@ descriptor_copy_mutable_1texelbuffer(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_tbo_mutable[0];
    cds.srcSet = desc_set_tbo_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1889,8 +2001,9 @@ descriptor_copy_mutable_16texelbuffer(unsigned iterations)
    cds.descriptorCount = MAX_SAMPLERS;
    cds.dstSet = desc_set_tbo_many_mutable[0];
    cds.srcSet = desc_set_tbo_many_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1902,8 +2015,9 @@ descriptor_copy_mutable_1imagebuffer(unsigned iterations)
    cds.descriptorCount = 1;
    cds.dstSet = desc_set_ibo_mutable[0];
    cds.srcSet = desc_set_ibo_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1915,8 +2029,9 @@ descriptor_copy_mutable_16imagebuffer(unsigned iterations)
    cds.descriptorCount = MIN2(dev->info.props.limits.maxPerStageDescriptorStorageImages, MAX_IMAGES);
    cds.dstSet = desc_set_ibo_many_mutable[0];
    cds.srcSet = desc_set_ibo_many_mutable[1];
+   PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets = VK(UpdateDescriptorSets);
    for (unsigned i = 0; i < iterations; i++) {
-      VK(UpdateDescriptorSets)(dev->dev, 0, NULL, 1, &cds);
+      vkUpdateDescriptorSets(dev->dev, 0, NULL, 1, &cds);
    }
 }
 
@@ -1961,6 +2076,8 @@ resolve(unsigned iterations, bool mutable, bool multiple_regions, bool mismatche
    imb[1].image = copy_image_dst[mutable];
    imb[1].subresourceRange = imb[0].subresourceRange = default_subresourcerange();
 
+   PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier = VK(CmdPipelineBarrier);
+   PFN_vkCmdResolveImage2 vkCmdResolveImage2 = VK(CmdResolveImage2);
    for (unsigned i = 0; i < iterations; i++, count++) {
       imb[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
       imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -1970,8 +2087,8 @@ resolve(unsigned iterations, bool mutable, bool multiple_regions, bool mismatche
       imb[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
       imb[1].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
       imb[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, imb);
-      VK(CmdResolveImage2)(cmdbuf, &r);
+      vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+      vkCmdResolveImage2(cmdbuf, &r);
       imb[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
       imb[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
       imb[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -1980,7 +2097,7 @@ resolve(unsigned iterations, bool mutable, bool multiple_regions, bool mismatche
       imb[1].dstAccessMask = 0;
       imb[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
       imb[1].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+      vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
    }
 }
 
@@ -2079,6 +2196,8 @@ copy(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_r
    imb[1].image = copy_image_dst[mutable];
    imb[1].subresourceRange = imb[0].subresourceRange = default_subresourcerange();
 
+   PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier = VK(CmdPipelineBarrier);
+   PFN_vkCmdCopyImage2 vkCmdCopyImage2 = VK(CmdCopyImage2);
    for (unsigned i = 0; i < iterations; i++, count++) {
       imb[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
       imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -2088,8 +2207,8 @@ copy(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_r
       imb[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
       imb[1].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
       imb[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, imb);
-      VK(CmdCopyImage2)(cmdbuf, &r);
+      vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+      vkCmdCopyImage2(cmdbuf, &r);
       imb[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
       imb[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
       imb[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -2098,7 +2217,7 @@ copy(unsigned iterations, bool mutable, bool multiple_regions, bool mismatched_r
       imb[1].dstAccessMask = 0;
       imb[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
       imb[1].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-      VK(CmdPipelineBarrier)(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
+      vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, imb);
    }
 }
 
