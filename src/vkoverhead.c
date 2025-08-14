@@ -3405,7 +3405,7 @@ init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
          template_entry.stride = sizeof(VkBufferView);
          break;
       default:
-         unreachable("???");
+         UNREACHABLE("???");
       }
       VkResult result = VK(CreateDescriptorUpdateTemplate)(dev->dev, &tci, NULL, template);
       VK_CHECK("CreateDescriptorUpdateTemplate", result);

@@ -66,12 +66,16 @@ class Extension:
     enable_conds   = None
     core_since     = None
 
+    # for extensions that are promoted to KHR verbatim
+    is_promoted_to_khr  = False
+
     # these are specific to vk_device_info.py:
     has_properties      = False
     has_features        = False
     guard               = False
     features_promoted   = False
     properties_promoted = False
+    needs_double_load   = False
     
 
     # these are specific to vk_instance.py:
@@ -94,10 +98,18 @@ class Extension:
     # e.g.: "VK_EXT_robustness2" -> "robustness2"
     def pure_name(self):
         return '_'.join(self.name.split('_')[2:])
+
+    # e.g.: "VK_EXT_robustness2" with vendor="KHR" -> "VK_KHR_robustness2"
+    def with_vendor(self, vendor: str):
+            return "VK_" + vendor + "_" + self.pure_name()
     
     # e.g.: "VK_EXT_robustness2" -> "EXT_robustness2"
-    def name_with_vendor(self):
-        return self.name[3:]
+    # if a vendor is specified, returns the name with that vendor
+    def name_with_vendor(self, vendor: str = ""):
+        if not vendor:
+            return self.name[3:]
+        else:
+            return vendor + "_" + self.pure_name()
     
     # e.g.: "VK_EXT_robustness2" -> "Robustness2"
     def name_in_camel_case(self):
@@ -113,7 +125,7 @@ class Extension:
             match_os = re.match(".*win32$", original)
 
             # try to match extensions with alphanumeric names, like robustness2
-            match_alphanumeric = re.match("([a-z]+)(\d+)", original)
+            match_alphanumeric = re.match(r"([a-z]+)(\d+)", original)
 
             if match_types is not None or match_os is not None:
                 return original.upper()
@@ -171,11 +183,42 @@ class Extension:
 # Type aliases
 Layer = Extension
 
+class ExtensionRegistryCommand:
+    full_name         = ""
+    not_promoted      = False
+
+    # returns "CmdFoo" for "vkCmdFoo"
+    def name(self):
+        return self.full_name.lstrip("vk")
+
+class ExtensionPropField:
+    # name of the property
+    name             = ""
+    type_name        = ""
+
+    # name of the variable that stores the length of this property
+    # 1. MUST be None for non-arrays
+    # 2. MUST be "null-terminated" for C strings
+    prop_len         = None
+
+    # whether the property is nullable
+    is_optional      = False
+
+    # returns the name of the field that stores the length of this property
+    def len_field(self):
+        if not self.prop_len:
+            return None
+        elif self.prop_len == "null-terminated":
+            return None
+        return self.prop_len
+
 class ExtensionRegistryEntry:
     # type of extension - right now it's either "instance" or "device"
     ext_type          = ""
     # the version in which the extension is promoted to core VK
     promoted_in       = None
+    # (only if the extension is EXT) whether a KHR version of it exists
+    promoted_to_khr   = False
     # functions added by the extension are referred to as "commands" in the registry
     device_commands   = None
     pdevice_commands  = None
@@ -187,6 +230,10 @@ class ExtensionRegistryEntry:
     properties_struct = None
     properties_fields = None
     properties_promoted = False
+    # if the property field requires dynamic allocated arrays, double-loading is
+    # required: first properties load for count and malloc'ing, second properties
+    # load for actual array content
+    needs_double_load = False
     # some instance extensions are locked behind certain platforms
     platform_guard    = ""
 
@@ -238,6 +285,8 @@ class ExtensionRegistry:
             entry = ExtensionRegistryEntry()
             entry.ext_type = ext.attrib["type"]
             entry.promoted_in = self.parse_promotedto(ext.get("promotedto"))
+            entry.is_promoted_to_khr = ("VK_EXT_" in name
+                and name.replace("VK_EXT_", "VK_KHR_") == ext.get("promotedto"))
 
             entry.device_commands = []
             entry.pdevice_commands = []
@@ -247,13 +296,18 @@ class ExtensionRegistry:
 
             for cmd in ext.findall("require/command"):
                 cmd_name = cmd.get("name")
+                cmd_comment = cmd.get("comment")
                 if cmd_name:
+                    this_cmd = ExtensionRegistryCommand()
+                    this_cmd.full_name = cmd_name
+                    this_cmd.not_promoted = bool(cmd_comment) and "not promoted" in cmd_comment.lower()
+
                     if commands_type[cmd_name] in ("VkDevice", "VkCommandBuffer", "VkQueue"):
-                        entry.device_commands.append(cmd_name)
+                        entry.device_commands.append(this_cmd)
                     elif commands_type[cmd_name] in ("VkPhysicalDevice"):
-                        entry.pdevice_commands.append(cmd_name)
+                        entry.pdevice_commands.append(this_cmd)
                     else:
-                        entry.instance_commands.append(cmd_name)
+                        entry.instance_commands.append(this_cmd)
 
             entry.constants = []
             for enum in ext.findall("require/enum"):
@@ -305,11 +359,24 @@ class ExtensionRegistry:
                     entry.properties_promoted = False
                 
                 for field in vkxml.findall("./types/type[@name='{}']/member".format(struct_name)):
+                    prop_field = ExtensionPropField()
+
                     field_name = field.find("name").text
+                    field_type = field.find("./type")
+
+                    field_len = None
+                    if field_type.tail.strip() == "*":
+                        field_len = field.get("len")
+                    
+                    if bool(field_len) and field_len != "null-terminated":
+                        entry.needs_double_load = True
 
                     # we ignore sType and pNext since they are irrelevant
                     if field_name not in ["sType", "pNext"]:
-                        entry.properties_fields.append(field_name)
+                        prop_field.name = field_name
+                        prop_field.type_name = field_type.text
+                        prop_field.prop_len = field_len
+                        entry.properties_fields.append(prop_field)
 
             if ext.get("platform") is not None:
                 entry.platform_guard = platform_guards[ext.get("platform")]

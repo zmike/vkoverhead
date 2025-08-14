@@ -28,6 +28,7 @@ from os import path
 from xml.etree import ElementTree
 from vk_device_extensions import Extension,Layer,ExtensionRegistry,Version
 import sys
+import platform
 
 # constructor: Extension(name, conditions=[], nonstandard=False)
 # The attributes:
@@ -44,10 +45,15 @@ EXTENSIONS = [
     Extension("VK_KHR_surface"),
     Extension("VK_EXT_headless_surface"),
     Extension("VK_KHR_wayland_surface"),
-    Extension("VK_KHR_xcb_surface",
-              conditions=["!instance_info->disable_xcb_surface"]),
+    Extension("VK_KHR_xcb_surface"),
     Extension("VK_KHR_win32_surface"),
+    Extension("VK_KHR_android_surface"),
 ]
+
+if platform.system() == "Darwin":
+    EXTENSIONS += [
+        Extension("VK_KHR_portability_enumeration"),
+    ]
 
 # constructor: Layer(name, conditions=[])
 # - conditions: See documentation of EXTENSIONS.
@@ -63,19 +69,21 @@ header_code = """
 #define VK_INSTANCE_H
 
 #include <stdbool.h>
-#include <vulkan/vulkan.h>
+#include "util/u_process.h"
 
-#if defined(__APPLE__)
+#include <vulkan/vulkan_core.h>
+
+#ifdef __APPLE__
+#include "MoltenVK/mvk_vulkan.h"
 // Source of MVK_VERSION
-#include "MoltenVK/vk_mvk_moltenvk.h"
-#endif
+#include "MoltenVK/mvk_config.h"
+#endif /* __APPLE__ */
 
-struct pipe_screen;
+struct pipe_dev;
 struct vk_device;
 
 struct vk_instance_info {
    uint32_t loader_version;
-   bool disable_xcb_surface;
 
 %for ext in extensions:
    bool have_${ext.name_with_vendor()};
@@ -96,27 +104,23 @@ vk_verify_instance_extensions(struct vk_device *dev);
  * properly loaded.
  */
 %for ext in extensions:
-%if registry.in_registry(ext.name):
-%for cmd in registry.get_registry_entry(ext.name).instance_commands:
-void vk_stub_${cmd.lstrip("vk")}(void);
-%endfor
-%for cmd in registry.get_registry_entry(ext.name).pdevice_commands:
-void vk_stub_${cmd.lstrip("vk")}(void);
-%endfor
-%endif
+   %if registry.in_registry(ext.name):
+      %for cmd in registry.get_registry_entry(ext.name).instance_commands:
+         void VKAPI_PTR vk_stub_${cmd.name()}(void);
+      %endfor
+      %for cmd in registry.get_registry_entry(ext.name).pdevice_commands:
+         void VKAPI_PTR vk_stub_${cmd.name()}(void);
+      %endfor
+   %endif
 %endfor
 
-struct pipe_screen;
+struct pipe_dev;
 struct pipe_resource;
 
 #endif
 """
 
 impl_code = """
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
 #include "vk_enum_to_str.h"
 #include "vk_instance.h"
 #include "vk_device.h"
@@ -149,17 +153,17 @@ vk_create_instance(struct vk_device *dev)
    GET_PROC_ADDR_INSTANCE_LOCAL(dev, NULL, EnumerateInstanceLayerProperties);
    if (!vk_EnumerateInstanceExtensionProperties ||
        !vk_EnumerateInstanceLayerProperties)
-      return false;
+      return NULL;
 
    // Build up the extensions from the reported ones but only for the unnamed layer
    uint32_t extension_count = 0;
    if (vk_EnumerateInstanceExtensionProperties(NULL, &extension_count, NULL) != VK_SUCCESS) {
-       fprintf(stderr, \"VK: vkEnumerateInstanceExtensionProperties failed\\n\");
+      fprintf(stderr, "VK: vkEnumerateInstanceExtensionProperties failed\\n");
    } else {
        VkExtensionProperties *extension_props = malloc(extension_count * sizeof(VkExtensionProperties));
        if (extension_props) {
            if (vk_EnumerateInstanceExtensionProperties(NULL, &extension_count, extension_props) != VK_SUCCESS) {
-              fprintf(stderr, \"VK: vkEnumerateInstanceExtensionProperties failed\\n\");
+               fprintf(stderr, "VK: vkEnumerateInstanceExtensionProperties failed\\n");
            } else {
               for (uint32_t i = 0; i < extension_count; i++) {
         %for ext in extensions:
@@ -177,12 +181,12 @@ vk_create_instance(struct vk_device *dev)
     uint32_t layer_count = 0;
 
     if (vk_EnumerateInstanceLayerProperties(&layer_count, NULL) != VK_SUCCESS) {
-        fprintf(stderr, \"VK: vkEnumerateInstanceLayerProperties failed\\n\");
+      fprintf(stderr, "VK: vkEnumerateInstanceLayerProperties failed\\n");
     } else {
         VkLayerProperties *layer_props = malloc(layer_count * sizeof(VkLayerProperties));
         if (layer_props) {
             if (vk_EnumerateInstanceLayerProperties(&layer_count, layer_props) != VK_SUCCESS) {
-                fprintf(stderr, \"VK: vkEnumerateInstanceLayerProperties failed\\n\");
+               fprintf(stderr, "VK: vkEnumerateInstanceLayerProperties failed\\n");
             } else {
                for (uint32_t i = 0; i < layer_count; i++) {
 %for layer in layers:
@@ -234,12 +238,14 @@ vk_create_instance(struct vk_device *dev)
    ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
    ai.pApplicationName = "vkoverhead";
-
    ai.pEngineName = "vkoverhead";
    ai.apiVersion = instance_info->loader_version;
 
    VkInstanceCreateInfo ici = {0};
    ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+#ifdef __APPLE__
+   ici.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
    ici.pApplicationInfo = &ai;
    ici.ppEnabledExtensionNames = extensions;
    ici.enabledExtensionCount = num_extensions;
@@ -251,45 +257,46 @@ vk_create_instance(struct vk_device *dev)
 
    VkResult err = vk_CreateInstance(&ici, NULL, &dev->instance);
    if (err != VK_SUCCESS) {
-      fprintf(stderr, \"VK: vkCreateInstance failed (%s)\\n\", vk_Result_to_str(err));
-      return false;
-   }
+      fprintf(stderr, "VK: vkCreateInstance failed (%s)\\n", vk_Result_to_str(err));
 
-   return true;
+      return false;
+   } else {
+      return true;
+   }
 }
 
 void
 vk_verify_instance_extensions(struct vk_device *dev)
 {
 %for ext in extensions:
-%if registry.in_registry(ext.name):
-%if ext.platform_guard:
-#ifdef ${ext.platform_guard}
-%endif
-   if (dev->instance_info.have_${ext.name_with_vendor()}) {
-%for cmd in registry.get_registry_entry(ext.name).instance_commands:
-      if (!dev->vk.${cmd.lstrip("vk")}) {
-#ifndef NDEBUG
-         dev->vk.${cmd.lstrip("vk")} = (PFN_${cmd})vk_stub_${cmd.lstrip("vk")};
-#else
-         dev->vk.${cmd.lstrip("vk")} = (PFN_${cmd})vk_stub_function_not_loaded;
-#endif
-      }
-%endfor
-%for cmd in registry.get_registry_entry(ext.name).pdevice_commands:
-      if (!dev->vk.${cmd.lstrip("vk")}) {
-#ifndef NDEBUG
-         dev->vk.${cmd.lstrip("vk")} = (PFN_${cmd})vk_stub_${cmd.lstrip("vk")};
-#else
-         dev->vk.${cmd.lstrip("vk")} = (PFN_${cmd})vk_stub_function_not_loaded;
-#endif
-      }
-%endfor
-   }
-%endif
-%if ext.platform_guard:
-#endif
-%endif
+   %if registry.in_registry(ext.name):
+      %if ext.platform_guard:
+      #ifdef ${ext.platform_guard}
+      %endif
+         if (dev->instance_info.have_${ext.name_with_vendor()}) {
+      %for cmd in registry.get_registry_entry(ext.name).instance_commands:
+            if (!dev->vk.${cmd.name()}) {
+      #ifndef NDEBUG
+               dev->vk.${cmd.name()} = (PFN_${cmd.full_name})vk_stub_${cmd.name()};
+      #else
+               dev->vk.${cmd.name()} = (PFN_${cmd.full_name})vk_stub_function_not_loaded;
+      #endif
+            }
+      %endfor
+      %for cmd in registry.get_registry_entry(ext.name).pdevice_commands:
+            if (!dev->vk.${cmd.name()}) {
+      #ifndef NDEBUG
+               dev->vk.${cmd.name()} = (PFN_${cmd.full_name})vk_stub_${cmd.name()};
+      #else
+               dev->vk.${cmd.name()} = (PFN_${cmd.full_name})vk_stub_function_not_loaded;
+      #endif
+            }
+      %endfor
+         }
+      %if ext.platform_guard:
+         #endif
+      %endif
+   %endif
 %endfor
 }
 
@@ -299,27 +306,27 @@ vk_verify_instance_extensions(struct vk_device *dev)
 <% generated_funcs = set() %>
 
 %for ext in extensions:
-%if registry.in_registry(ext.name):
-%for cmd in registry.get_registry_entry(ext.name).instance_commands + registry.get_registry_entry(ext.name).pdevice_commands:
-%if cmd in generated_funcs:
-   <% continue %>
-%else:
-   <% generated_funcs.add(cmd) %>
-%endif
-%if ext.platform_guard:
-#ifdef ${ext.platform_guard}
-%endif
-void
-vk_stub_${cmd.lstrip("vk")}()
-{
-   fprintf(stderr, \"VK: ${cmd} is not loaded properly!\\n\");
-   abort();
-}
-%if ext.platform_guard:
-#endif
-%endif
-%endfor
-%endif
+   %if registry.in_registry(ext.name):
+      %for cmd in registry.get_registry_entry(ext.name).instance_commands + registry.get_registry_entry(ext.name).pdevice_commands:
+         %if cmd.name in generated_funcs:
+            <% continue %>
+         %else:
+            <% generated_funcs.add(cmd.full_name) %>
+         %endif
+         %if ext.platform_guard:
+         #ifdef ${ext.platform_guard}
+         %endif
+            void VKAPI_PTR
+            vk_stub_${cmd.name()}()
+            {
+               fprintf(stderr, "VK: ${cmd.full_name} is not loaded properly!\\n");
+               abort();
+            }
+         %if ext.platform_guard:
+         #endif
+         %endif
+      %endfor
+   %endif
 %endfor
 
 #endif
@@ -381,12 +388,12 @@ if __name__ == "__main__":
         print("vk_instance.py: Found {} error(s) in total. Quitting.".format(error_count))
         exit(1)
 
-    with open(header_path, "w") as header_file:
+    with open(header_path, "w", encoding='utf-8') as header_file:
         header = Template(header_code).render(extensions=extensions, layers=layers, registry=registry).strip()
         header = replace_code(header, replacement)
         print(header, file=header_file)
 
-    with open(impl_path, "w") as impl_file:
+    with open(impl_path, "w", encoding='utf-8') as impl_file:
         impl = Template(impl_code).render(extensions=extensions, layers=layers, registry=registry).strip()
         impl = replace_code(impl, replacement)
         print(impl, file=impl_file)
