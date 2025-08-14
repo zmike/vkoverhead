@@ -319,6 +319,12 @@ check_dynamic_rendering(void)
 }
 
 static bool
+check_dynamic_state(void)
+{
+   return dev->info.have_EXT_extended_dynamic_state;
+}
+
+static bool
 check_descriptor_template(void)
 {
    return dev->info.have_KHR_descriptor_update_template;
@@ -753,6 +759,21 @@ draw_index_offset_change(unsigned iterations)
    VkDeviceSize offsets[] = {0, 16};
    for (unsigned i = 0; i < iterations; i++, count++) {
       VK(CmdBindIndexBuffer)(cmdbuf, index_bo[0], offsets[i & 1], VK_INDEX_TYPE_UINT32);
+      VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
+   }
+}
+
+static void
+draw_topology_change_dynamic(unsigned iterations)
+{
+   VkPrimitiveTopology primtype[] = {
+      VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+      VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+   };
+   iterations = filter_overflow(draw_topology_change_dynamic, iterations, 1);
+   begin_rp();
+   for (unsigned i = 0; i < iterations; i++, count++) {
+      VK(CmdSetPrimitiveTopology)(cmdbuf, primtype[i % ARRAY_SIZE(primtype)]);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
    }
 }
@@ -2381,6 +2402,7 @@ static struct perf_case cases_draw[] = {
    CASE_BASIC(draw_multi_vertex, check_multi_draw),
    CASE_BASIC(draw_index_change),
    CASE_BASIC(draw_index_offset_change),
+   CASE_BASIC_DYN(draw_topology_change_dynamic, check_dynamic_state),
    CASE_BASIC(draw_rp_begin_end),
    CASE_DYN_BASIC(draw_rp_begin_end_dynrender, check_dynamic_rendering),
    CASE_BASIC(draw_rp_begin_end_dontcare),
