@@ -60,6 +60,10 @@ static int cmdbuf_pool_idx;
 static int cmdbuf_idx;
 static bool cmdbuf_active = false;
 static bool rp_active = false;
+struct descriptor_pool_state {
+   VkDescriptorPool pool;
+   VkDescriptorSetLayout layout;
+};
 
 static VkRenderPass render_pass_multirt_clear;
 static VkRenderPass render_pass_multirt_dontcare;
@@ -191,6 +195,9 @@ static VkDescriptorSet desc_set_tbo_mutable[2];
 static VkDescriptorSet desc_set_tbo_many_mutable[2];
 static VkDescriptorSet desc_set_ibo_mutable[2];
 static VkDescriptorSet desc_set_ibo_many_mutable[2];
+struct descriptor_pool_state desc_pool_1;
+struct descriptor_pool_state desc_pool_1k;
+struct descriptor_pool_state desc_pool_50k;
 static VkBuffer vbo[16];
 static VkBuffer ubo[MAX_UBOS];
 static VkBuffer ssbo[MAX_SSBOS];
@@ -1590,6 +1597,42 @@ descriptor_copy_1ubo(unsigned iterations)
    }
 }
 
+static inline void
+descriptor_pool_alloc_reset(struct descriptor_pool_state *state, unsigned iterations, int descriptorCount)
+{
+   VkDescriptorSetAllocateInfo alloc_info = {
+       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+       .pNext = NULL,
+       .descriptorSetCount = 1,
+       .descriptorPool = state->pool,
+       .pSetLayouts = &state->layout};
+
+   for (unsigned i = 0; i < iterations; i++) {
+      VkDescriptorSet set;
+      for (int j = 0; j < descriptorCount; j++)
+         VK(AllocateDescriptorSets)(dev->dev, &alloc_info, &set);
+      VK(ResetDescriptorPool)(dev->dev, state->pool, 0);
+   }
+}
+
+static void
+descriptor_pool_1_reset(unsigned iterations)
+{
+   descriptor_pool_alloc_reset(&desc_pool_1, iterations, 1);
+}
+
+static void
+descriptor_pool_1k_reset(unsigned iterations)
+{
+   descriptor_pool_alloc_reset(&desc_pool_1k, iterations, 1000);
+}
+
+static void
+descriptor_pool_50k_reset(unsigned iterations)
+{
+   descriptor_pool_alloc_reset(&desc_pool_50k, iterations, 50000);
+}
+
 static void
 descriptor_copy_12ubo(unsigned iterations)
 {
@@ -2555,6 +2598,9 @@ static struct perf_case cases_misc[] = {
    CASE_MISC(misc_compile_fastlink_slow, check_dota2),
    CASE_MISC(misc_zerovram, check_zerovram),
    CASE_MISC(misc_zerovram_manual, check_zerovram),
+   CASE_MISC(descriptor_pool_1_reset),
+   CASE_MISC(descriptor_pool_1k_reset),
+   CASE_MISC(descriptor_pool_50k_reset),
 };
 
 #define CASE_HIC(name) {#name, name, NULL, check_host_image_copy}
@@ -3356,6 +3402,33 @@ parse_args(int argc, const char **argv)
    }
 }
 
+static struct descriptor_pool_state
+init_descriptor_pool(VkDescriptorType descriptorType, unsigned descriptorCount)
+{
+   struct descriptor_pool_state state = {0};
+
+   VkDescriptorPoolSize size = {0};
+   size.type = descriptorType;
+   size.descriptorCount = descriptorCount;
+
+   VkDescriptorPoolCreateInfo dpci = {0};
+   dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+   dpci.pNext = NULL;
+   dpci.pPoolSizes = &size;
+   dpci.poolSizeCount = 1;
+   dpci.maxSets = descriptorCount;
+   VkResult result = VK(CreateDescriptorPool)(dev->dev, &dpci, 0, &state.pool);
+   VK_CHECK("CreateDescriptorPool", result);
+
+   VkDescriptorSetLayoutCreateInfo dcslci = {
+       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+       .pNext = NULL};
+   result = VK(CreateDescriptorSetLayout)(dev->dev, &dcslci, 0, &state.layout);
+   VK_CHECK("CreateDescriptorSetLayout", result);
+
+   return state;
+}
+
 static void
 init_descriptor_state(VkDescriptorType descriptorType, unsigned descriptorCount,
                       VkPipelineLayout *layout, VkDescriptorUpdateTemplate *template,
@@ -3475,6 +3548,9 @@ main(int argc, char *argv[])
    #define INIT_DESCRIPTOR(TYPE, SUFFIX, LIMIT) \
    init_descriptor_state(TYPE, 1, &layout_##SUFFIX, &template_##SUFFIX, &layout_##SUFFIX##_push, &template_##SUFFIX##_push, desc_set_##SUFFIX, desc_set_##SUFFIX##_mutable, ARRAY_SIZE(desc_set_##SUFFIX)); \
    init_descriptor_state(TYPE, LIMIT, &layout_##SUFFIX##_many, &template_##SUFFIX##_many, &layout_##SUFFIX##_many_push, &template_##SUFFIX##_many_push, desc_set_##SUFFIX##_many, desc_set_##SUFFIX##_many_mutable, ARRAY_SIZE(desc_set_##SUFFIX##_many));
+   desc_pool_1 = init_descriptor_pool(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
+   desc_pool_1k = init_descriptor_pool(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000);
+   desc_pool_50k = init_descriptor_pool(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 50000);
 
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ssbo, MAX_SSBOS);
    INIT_DESCRIPTOR(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combined_sampler, MAX_SAMPLERS);

@@ -22,6 +22,7 @@
  */
 
 #include "vk_device.h"
+#include "ralloc.h"
 
 void
 vk_device_destroy(struct vk_device *dev)
@@ -37,7 +38,7 @@ vk_device_destroy(struct vk_device *dev)
 
    util_dl_close(dev->loader_lib);
 
-   free(dev);
+   ralloc_free(dev);
 }
 
 static bool
@@ -260,7 +261,7 @@ vk_create_logical_device(struct vk_device *dev)
 struct vk_device *
 vk_device_create(void)
 {
-   struct vk_device *dev = calloc(1, sizeof(struct vk_device));
+   struct vk_device *dev = rzalloc(NULL, struct vk_device);
    if (!dev)
       abort();
 
