@@ -73,6 +73,7 @@ endif
 if with_platform_android
   c_args += '-DVK_USE_PLATFORM_ANDROID_KHR'
   cpp_args += '-DVK_USE_PLATFORM_ANDROID_KHR'
+  pre_args += '-DANDROID_API_LEVEL=' + get_option('platform-sdk-version').to_string()
 endif
 
 # Check for GCC style builtins

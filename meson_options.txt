@@ -29,6 +29,15 @@ option(
 )
 
 option(
+  'platform-sdk-version',
+  type : 'integer',
+  min : 25,
+  max : 10000,
+  value : 34,
+  description : 'Android Platform SDK version. Default: Android14 version.'
+)
+
+option(
   'moltenvk-dir',
   type : 'string',
   value : '',
