@@ -27,7 +27,8 @@ vk_device_info = custom_target(
   output : ['vk_device_info.h', 'vk_device_info.c'],
   command : [
     prog_python, '@INPUT@', '@OUTPUT@', join_paths(meson.source_root(), 'vulkan/vk.xml')
-  ]
+  ],
+  depend_files: files('vk_device_extensions.py'),
 )
 
 vk_instance = custom_target(
@@ -36,7 +37,8 @@ vk_instance = custom_target(
   output : ['vk_instance.h', 'vk_instance.c'],
   command : [
     prog_python, '@INPUT@', '@OUTPUT@', join_paths(meson.source_root(), 'vulkan/vk.xml')
-  ]
+  ],
+  depend_files: files('vk_device_extensions.py'),
 )
 
 vk_extensions_depend_files = [
@@ -75,6 +77,7 @@ vk_enum_to_str = custom_target(
     '--outdir', meson.current_build_dir(),
     '--beta', 'false',
   ],
+  depend_files: vk_extensions_gen_depend_files,
 )
 
 vk_extensions = custom_target(
