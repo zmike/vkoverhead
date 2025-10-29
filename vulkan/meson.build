@@ -23,20 +23,20 @@ vk_api_xml = files('vk.xml')
 
 vk_device_info = custom_target(
   'vk_device_info',
-  input : 'vk_device_info.py',
+  input : ['vk_device_info.py', 'vk.xml'],
   output : ['vk_device_info.h', 'vk_device_info.c'],
   command : [
-    prog_python, '@INPUT@', '@OUTPUT@', join_paths(meson.source_root(), 'vulkan/vk.xml')
+    prog_python, '@INPUT0@', '@OUTPUT@', '@INPUT1@'
   ],
   depend_files: files('vk_device_extensions.py'),
 )
 
 vk_instance = custom_target(
   'vk_instance.c',
-  input : ['vk_instance.py'],
+  input : ['vk_instance.py', 'vk.xml'],
   output : ['vk_instance.h', 'vk_instance.c'],
   command : [
-    prog_python, '@INPUT@', '@OUTPUT@', join_paths(meson.source_root(), 'vulkan/vk.xml')
+    prog_python, '@INPUT0@', '@OUTPUT@', '@INPUT1@'
   ],
   depend_files: files('vk_device_extensions.py'),
 )
