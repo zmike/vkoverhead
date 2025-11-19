@@ -79,11 +79,6 @@ create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bo
    } else if (fallback_match != -1) {
       // This case is reached if host=true, cached=false, and no non-cached type was found
       mai.memoryTypeIndex = fallback_match;
-   } else {
-      // Error: No suitable memory type found. Handle appropriately.
-      LOG(FATAL) << "Failed to find suitable Vulkan memory type."
-                 << " Required flags: 0x" << std::hex << required_flags
-                 << ", Allowed memoryTypeBits: 0x" << std::hex << memoryTypeBits;
    }
 
    if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
