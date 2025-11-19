@@ -36,16 +36,51 @@ create_memory(VkDeviceSize size, uint32_t memoryTypeBits, unsigned alignment, bo
    ai.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
    if (dev->info.have_KHR_buffer_device_address)
       mai.pNext = &ai;
-   VkMemoryPropertyFlags domains = host ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (cached ? VK_MEMORY_PROPERTY_HOST_CACHED_BIT : 0)) : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-   VkMemoryPropertyFlags avoid_domains = (host && !cached) ? VK_MEMORY_PROPERTY_HOST_CACHED_BIT : 0;
+   VkMemoryPropertyFlags required_flags = host ? (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+   if (host && cached) {
+      required_flags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+   }
+
+   int ideal_match = -1;
+   int fallback_match = -1;
+
    for (unsigned i = 0; i < dev->info.mem_props.memoryTypeCount; i++) {
-      if ((dev->info.mem_props.memoryTypes[i].propertyFlags & domains) == domains &&
-          (dev->info.mem_props.memoryTypes[i].propertyFlags & avoid_domains) == 0 &&
-          BITFIELD_BIT(i) & memoryTypeBits) {
-         mai.memoryTypeIndex = i;
-         break;
+      // Check if this memory type is allowed by the bitmask
+      if (!((1 << i) & memoryTypeBits)) {
+         continue;
+      }
+
+      VkMemoryPropertyFlags current_flags = dev->info.mem_props.memoryTypes[i].propertyFlags;
+
+      // Check if all required flags are present
+      if ((current_flags & required_flags) == required_flags) {
+         if (host && !cached) {
+            // We PREFER non-cached, but require VISIBLE and COHERENT.
+            bool is_cached = (current_flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0;
+            if (!is_cached) {
+               ideal_match = i;
+               break; // Found the best possible type
+            } else {
+               // It's cached, but meets the base requirements. Keep as a fallback.
+               if (fallback_match == -1) {
+                  fallback_match = i;
+               }
+            }
+         } else {
+            // For (host && cached) or (!host), any type meeting required_flags is ideal.
+            ideal_match = i;
+            break;
+         }
       }
    }
+
+   if (ideal_match != -1) {
+      mai.memoryTypeIndex = ideal_match;
+   } else if (fallback_match != -1) {
+      // This case is reached if host=true, cached=false, and no non-cached type was found
+      mai.memoryTypeIndex = fallback_match;
+   }
+
    if (!(memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex))) {
       fprintf(stderr, "Could not successfully allocate described memory type\n");
       abort();
