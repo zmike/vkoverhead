@@ -34,6 +34,8 @@
 #define VK_LIBNAME "libvulkan.1.dylib"
 // Source of MVK_VERSION
 #include "MoltenVK/vk_mvk_moltenvk.h"
+#elif defined(__ANDROID__)
+#define VK_LIBNAME "libvulkan.so"
 #else
 #define VK_LIBNAME "libvulkan.so.1"
 #endif
