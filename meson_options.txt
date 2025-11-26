@@ -43,3 +43,9 @@ option(
   value : '',
   description : 'Location of the MoltenVk SDK. Default: '
 )
+
+option(
+  'sse2',
+  type : 'boolean',
+  value : true,
+)
