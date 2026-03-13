@@ -244,6 +244,9 @@ static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
 static uint64_t count = 0;
 
+static VkVertexInputBindingDescription2EXT vbindings[2][16];
+static VkVertexInputAttributeDescription2EXT vattr[2][16];
+
 /* current host image copy format */
 static VkFormat hic_format = VK_FORMAT_UNDEFINED;
 
@@ -589,10 +592,9 @@ begin_cmdbuf(void)
       return;
 
    if (dev->info.have_EXT_vertex_input_dynamic_state) {
-      VkVertexInputBindingDescription2EXT vbindings[16];
-      VkVertexInputAttributeDescription2EXT vattr[16];
-      generate_vattribs_dynamic(vbindings, vattr);
-      VK(CmdSetVertexInputEXT)(cmdbuf, 16, vbindings, 16, vattr);
+      for (unsigned i = 0; i < 2; i++)
+         generate_vattribs_dynamic(vbindings[i], vattr[i]);
+      VK(CmdSetVertexInputEXT)(cmdbuf, 16, vbindings[0], 16, vattr[0]);
       VK(CmdBindVertexBuffers)(cmdbuf, 0, ARRAY_SIZE(vbo), vbo, offsets);
    } else if (dev->info.have_EXT_extended_dynamic_state) {
       float vec4[4];
@@ -972,10 +974,7 @@ draw_16vattrib_change_dynamic(unsigned iterations)
 {
    iterations = filter_overflow(draw_16vattrib_change_dynamic, iterations, 1);
    begin_rp();
-   VkVertexInputBindingDescription2EXT vbindings[2][16];
-   VkVertexInputAttributeDescription2EXT vattr[2][16];
-   for (unsigned i = 0; i < 2; i++)
-      generate_vattribs_dynamic(vbindings[i], vattr[i]);
+
    for (unsigned i = 0; i < iterations; i++, count++) {
       VK(CmdSetVertexInputEXT)(cmdbuf, 16, vbindings[i & 1], 16, vattr[i & 1]);
       VK(CmdDrawIndexed)(cmdbuf, 3, 1, 0, 0, 0);
