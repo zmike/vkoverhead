@@ -243,6 +243,7 @@ static VkPipelineLayout slow_layout;
 static VkMultiDrawInfoEXT draws[500];
 static VkMultiDrawIndexedInfoEXT draws_indexed[500];
 static uint64_t count = 0;
+static unsigned cleanup_interval = 500;
 
 static VkVertexInputBindingDescription2EXT vbindings[2][16];
 static VkVertexInputAttributeDescription2EXT vattr[2][16];
@@ -981,6 +982,13 @@ draw_16vattrib_change_dynamic(unsigned iterations)
    }
 }
 
+static void periodic_pipeline_cleanup(void)
+{
+    VK(DeviceWaitIdle)(dev->dev);
+    reset_gpl(&pools[cmdbuf_pool_idx], NULL, 0);
+    count = 0;
+}
+
 /* static to avoid runtime overhead */
 static VkGraphicsPipelineCreateInfo draw_16vattrib_change_gpl_pci = {0};
 
@@ -1014,6 +1022,12 @@ draw_16vattrib_change_gpl(unsigned iterations)
 #else
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
 #endif
+      // Periodic cleanup of pipelines.
+      if ((i + 1) %  cleanup_interval == 0 && (i + 1) < iterations) {
+        end_rp();
+        periodic_pipeline_cleanup();
+        begin_rp();
+      }
    }
 }
 
@@ -2246,6 +2260,9 @@ misc_compile_fastlink_depthonly(unsigned iterations)
 #else
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
 #endif
+      // Periodic cleanup of pipelines.
+      if ((i + 1) %  cleanup_interval == 0 && (i + 1) < iterations)
+        periodic_pipeline_cleanup();
    }
 }
 
@@ -2276,6 +2293,9 @@ misc_compile_fastlink_slow(unsigned iterations)
 #else
       pools[cmdbuf_pool_idx].trash_ptrs[cmdbuf_idx][count] = (void*)pipeline;
 #endif
+      // Periodic cleanup of pipelines.
+      if ((i + 1) % cleanup_interval == 0 && (i + 1) < iterations)
+        periodic_pipeline_cleanup();
    }
 }
 
