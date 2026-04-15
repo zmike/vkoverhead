@@ -24,7 +24,7 @@ project(
   ['c', 'cpp'],
   version : '1.0',
   license : 'MIT',
-  meson_version : '>= 0.53',
+  meson_version : '>= 1.2.0',
   default_options : ['buildtype=debugoptimized', 'b_ndebug=if-release', 'c_std=c11', 'cpp_std=c++14']
 )
 
@@ -626,11 +626,26 @@ add_project_arguments(pre_args, language : ['c', 'cpp'])
 add_project_arguments(c_args, language : ['c'])
 add_project_arguments(cpp_args, language : ['cpp'])
 
-inc_util = [include_directories('util')]
+dep_android = []
+if with_platform_android
+  dep_android += [
+    cc.find_library('log'),
+  ]
+endif
+
+mesa_options = {'gallium-drivers': [], 'vulkan-drivers' : [], 'glx' : 'disabled', 'llvm' : 'false', 'platforms' : [], 'allow-broken-lto' : 'true', 'egl' : 'disabled', 'xmlconfig' : 'disabled', 'expat' : 'disabled'}
+
+if with_platform_android
+  mesa_options += {'cpp_rtti': 'false', 'android-libbacktrace': 'disabled', 'android-stub': 'true', 'android-strict': 'false', 'platform-sdk-version': '30', 'platforms': ['android']}
+endif
+
+proj_mesa = subproject('mesa', default_options : mesa_options)
+libutil = proj_mesa.get_variable('idep_mesautil')
+#inc_util = [proj_mesa.get_variable('inc_util')]
+inc_util = include_directories('subprojects/mesa/src/util')
 
 subdir('src')
 subdir('tools')
-subdir('util')
 subdir('vulkan')
 
 vk_c_args = []
@@ -647,16 +662,16 @@ endif
 
 vkoverhead = executable(
   'vkoverhead',
-  [files_vkoverhead, vk_device_info, vk_instance, vk_dispatch_table, vk_enum_to_str, vk_extensions, files_util],
+  [files_vkoverhead, vk_device_info, vk_instance, vk_dispatch_table, vk_enum_to_str, vk_extensions],
   include_directories : [inc_src, inc_vk, inc_util],
-  dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, idep_mesautilc11],
+  dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, libutil],
   c_args: vk_c_args,
 )
 
 foz_parse = executable(
   'foz_parse',
-  [files_foz_parse, files_util, vk_enum_to_str],
+  [files_foz_parse, vk_enum_to_str],
   include_directories : [inc_util, inc_vk],
-  dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, idep_mesautilc11],
+  dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, libutil],
   c_args: vk_c_args,
 )

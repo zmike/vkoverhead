@@ -637,7 +637,7 @@ main(int argc, char *argv[])
             continue;
 
          printf("%s found in %s\n", parsers[j].name, argv[i]);
-         util_dynarray_append(&jsons[j], cJSON*, c);
+         util_dynarray_append_typed(&jsons[j], cJSON*, c);
          char buf[4096];
          snprintf(buf, sizeof(buf), "%s", argv[i]);
          char *p = strrchr(buf, '.');
@@ -645,7 +645,7 @@ main(int argc, char *argv[])
          p[1] = 'x';
          p[2] = 0;
          FILE *f = fopen(buf, "wb");
-         util_dynarray_append(&jsonfiles[j], void*, f);
+         util_dynarray_append_typed(&jsonfiles[j], void*, f);
       }
    }
 

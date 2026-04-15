@@ -3520,7 +3520,6 @@ int
 main(int argc, char *argv[])
 {
    parse_args(argc, (const char**)argv);
-   util_cpu_detect();
    dev = vk_device_create();
    max_rts = dev->info.props.limits.maxColorAttachments == 8 ? 8 : 4;
    init_cmdbufs();
