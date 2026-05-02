@@ -362,6 +362,7 @@ static bool
 check_dota2(void)
 {
    return check_graphics_pipeline_library() &&
+          dev->info.feats.features.shaderClipDistance &&
           dev->info.props.limits.maxBoundDescriptorSets >= 5 &&
           dev->info.props.limits.maxPerStageDescriptorUniformBuffers >= 20 &&
           dev->info.props.limits.maxPerStageDescriptorSampledImages >= 2185;
@@ -2948,6 +2949,7 @@ print_table_header(bool csv, char* column_1, char* column_2, char* column_3, cha
       printf("\n| %3s | %-51s | %8s | %5s |\n", column_1, column_2, column_3, column_4);
       printf("| --: | --------------------------------------------------- | -------: | -----: |\n");
    }
+   fflush(stdout);
 }
 
 void
@@ -2969,6 +2971,7 @@ print_table_row(bool csv, bool color, unsigned int number, const char* name, uin
              color ? ratio_color : "",
              ratio,
              color ? COLOR_RESET : "");
+   fflush(stdout);
    return;
 }
 
@@ -2991,6 +2994,7 @@ print_table_row_unsupported(bool csv, bool color, unsigned int number, const cha
              color ? COLOR_YELLOW : "",
              driver_name,
              color ? COLOR_RESET : "");
+   fflush(stdout);
    return;
 }
 
