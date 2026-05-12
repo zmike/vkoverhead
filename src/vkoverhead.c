@@ -281,6 +281,7 @@ static bool is_dynamic = false;
 static bool submit_init = false;
 static bool is_descriptor_buffer = false;
 static bool is_zerovram = false;
+static bool is_compile_only = false;
 
 /* cmdline options */
 static double duration = 1.0;
@@ -515,7 +516,7 @@ next_cmdbuf_pool(void)
 static void
 next_cmdbuf(void)
 {
-   if (is_zerovram) {
+   if (is_zerovram || is_compile_only) {
       /* these only use first cmdbuf per pool */
       next_cmdbuf_pool();
       cmdbuf_idx = 0;
@@ -3079,6 +3080,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    cleanup_func = NULL;
    is_submit = false;
    is_zerovram = false;
+   is_compile_only = false;
    bool is_hic = false, is_new_hic_format = false;
    const char *name_suffix = NULL;
    if (case_idx < ARRAY_SIZE(cases_draw)) {
@@ -3118,6 +3120,7 @@ perf_run(unsigned case_idx, double base_rate, double duration)
    }
    bool unsupported = p->check_func && !p->check_func();
    is_dynamic = !!strstr(p->name, "dynamic");
+   is_compile_only = !!strstr(p->name, "compile");
    pipelines = p->pipelines;
    bool multirt = !!strstr(p->name, "multirt");
    if (is_descriptor_buffer && !unsupported) {
