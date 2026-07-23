@@ -295,6 +295,20 @@ create_hic_image(VkFormat format, unsigned width, unsigned height, bool cached)
    }
    VkResult result = VK(BindImageMemory)(dev->dev, image, *memory, 0);
    VK_CHECK("BindImageMemory", result);
+
+   const VkHostImageLayoutTransitionInfoEXT transition = {
+      .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
+      .image = image,
+      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .subresourceRange = {
+         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+         .levelCount = 1,
+         .layerCount = 1,
+      },
+   };
+   VK(TransitionImageLayoutEXT)(dev->dev, 1, &transition);
+
    return image;
 }
 
