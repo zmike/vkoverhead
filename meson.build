@@ -641,8 +641,8 @@ endif
 
 proj_mesa = subproject('mesa', default_options : mesa_options)
 libutil = proj_mesa.get_variable('idep_mesautil')
-#inc_util = [proj_mesa.get_variable('inc_util')]
-inc_util = include_directories('subprojects/mesa/src/util')
+inc_mesa_src = include_directories('subprojects/mesa/src') # [proj_mesa.get_variable('inc_src')]
+inc_mesa_src_util = include_directories('subprojects/mesa/src/util') # [proj_mesa.get_variable('inc_util')]
 
 subdir('src')
 subdir('tools')
@@ -663,7 +663,7 @@ endif
 vkoverhead = executable(
   'vkoverhead',
   [files_vkoverhead, vk_device_info, vk_instance, vk_dispatch_table, vk_enum_to_str, vk_extensions],
-  include_directories : [inc_src, inc_vk, inc_util],
+  include_directories : [inc_src, inc_vk, inc_mesa_src, inc_mesa_src_util],
   dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, libutil],
   c_args: vk_c_args,
 )
@@ -671,7 +671,7 @@ vkoverhead = executable(
 foz_parse = executable(
   'foz_parse',
   [files_foz_parse, vk_enum_to_str],
-  include_directories : [inc_util, inc_vk],
+  include_directories : [inc_mesa_src, inc_mesa_src_util, inc_vk],
   dependencies : [dep_thread, dep_m, dep_dl, dep_ws2_32, dep_atomic, dep_clock, dep_futex, libutil],
   c_args: vk_c_args,
 )

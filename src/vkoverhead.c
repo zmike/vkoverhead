@@ -24,11 +24,11 @@
 #define XXH_INLINE_ALL
 #include "vkoverhead.h"
 #include "common.h"
-#include "hash_table.h"
-#include "u_memory.h"
-#include "u_queue.h"
-#include "u_cpu_detect.h"
-#include "xxhash.h"
+#include "util/hash_table.h"
+#include "util/u_memory.h"
+#include "util/u_queue.h"
+#include "util/u_cpu_detect.h"
+#include "util/xxhash.h"
 #include <inttypes.h>
 
 struct vk_device *dev;
