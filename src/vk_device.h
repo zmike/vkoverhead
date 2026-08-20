@@ -23,7 +23,7 @@
 
 #ifndef VK_DEVICE_H
 #define VK_DEVICE_H
-#include "detect_os.h"
+#include "util/detect_os.h"
 
 #if DETECT_OS_WINDOWS
 #include <io.h>
@@ -41,11 +41,11 @@
 #endif
 #endif
 
-#include "u_dl.h"
+#include "util/u_dl.h"
 #include "vk_instance.h"
 #include "vk_device_info.h"
 #include "vk_dispatch_table.h"
-#include "macros.h"
+#include "util/macros.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>

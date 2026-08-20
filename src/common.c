@@ -25,7 +25,7 @@
  * Common perf code.  This should be re-usable with other tests.
  */
 
-#include "os_time.h"
+#include "util/os_time.h"
 #include "common.h"
 #include <stdio.h>
 

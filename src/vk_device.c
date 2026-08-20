@@ -22,7 +22,7 @@
  */
 
 #include "vk_device.h"
-#include "ralloc.h"
+#include "util/ralloc.h"
 
 void
 vk_device_destroy(struct vk_device *dev)
