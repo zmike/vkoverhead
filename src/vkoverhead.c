@@ -330,9 +330,9 @@ check_dynamic_rendering(void)
 }
 
 static bool
-check_dynamic_state(void)
+check_dynamic_state_and_vertex_input(void)
 {
-   return dev->info.have_EXT_extended_dynamic_state;
+   return dev->info.have_EXT_extended_dynamic_state && check_dynamic_vertex_input();
 }
 
 static bool
@@ -2446,7 +2446,7 @@ static struct perf_case cases_draw[] = {
    CASE_BASIC(draw_multi_vertex, check_multi_draw),
    CASE_BASIC(draw_index_change),
    CASE_BASIC(draw_index_offset_change),
-   CASE_BASIC_DYN(draw_topology_change_dynamic, check_dynamic_state),
+   CASE_BASIC_DYN(draw_topology_change_dynamic, check_dynamic_state_and_vertex_input),
    CASE_BASIC(draw_rp_begin_end),
    CASE_DYN_BASIC(draw_rp_begin_end_dynrender, check_dynamic_rendering),
    CASE_BASIC(draw_rp_begin_end_dontcare),
