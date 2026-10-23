@@ -642,8 +642,7 @@ main(int argc, char *argv[])
          snprintf(buf, sizeof(buf), "%s", argv[i]);
          char *p = strrchr(buf, '.');
          assert(p);
-         p[1] = 'x';
-         p[2] = 0;
+         snprintf(p, sizeof(buf) - (p - buf), ".inc");
          FILE *f = fopen(buf, "wb");
          util_dynarray_append_typed(&jsonfiles[j], void*, f);
       }

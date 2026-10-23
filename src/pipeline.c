@@ -23,7 +23,7 @@
 
 
 #include "vkoverhead.h"
-#include "data/shaders.x"
+#include "data/shaders.inc"
 
 
 static VkPipeline
